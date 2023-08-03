@@ -18,7 +18,6 @@ jobs:
         with:
           # All of these options are optional, so you can remove them if you are happy with the defaults
           concurrent_skipping: 'outdated_runs'
-          skip_after_successful_duplicate: 'true'
   build:
     needs: pre_job
     if: needs.pre_job.outputs.should_skip != 'true'
