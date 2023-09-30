@@ -164,4 +164,6 @@ README file included as README.old.
 * In game macro (bot) commands to allow for simple spellbotting without needing another tool
 * Learning points increased by (now 20) to return to 1996 levels: 6/6 with 1 int.
 * Added smallcave map to i6, outskirts of tos
+
+*attempting merge to live
   
