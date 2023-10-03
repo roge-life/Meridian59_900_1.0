@@ -97,18 +97,10 @@ messages:
          return FALSE;
       }
 
-      oRoom = Send(who,@GetOwner);
-      if oRoom = $
-         OR Send(oRoom,@GetRegion) <> RID_KOCATAN
-      {
-         oVault = Send(SYS,@FindVaultByNum,#num=VID_BARLOQUE);
-         iFee = Send(oTarget,@GetBulk);
-      }
-      else
-      {
-         oVault = Send(SYS,@FindVaultByNum,#num=VID_KOCATAN);
-         iFee = Send(oTarget,@GetBulk) * 2;
-      }
+      //Barloque is universal vault
+      oVault = Send(SYS,@FindVaultByNum,#num=VID_BARLOQUE);
+      iFee = Send(oTarget,@GetBulk);
+
 
       if iFee = $
          OR iFee = 0

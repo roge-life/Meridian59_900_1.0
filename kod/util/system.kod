@@ -3112,7 +3112,7 @@ messages:
    "Call this to create any vaults in this function that don't currently exist."
    {
       Send(self,@CreateOneVaultIfNew,#num=VID_BARLOQUE,#class=&Storage,
-           #capacity=12000);
+           #capacity=40000);
       Send(self,@CreateOneVaultIfNew,#num=VID_KOCATAN,#class=&Storage,
            #capacity=15000);
 
