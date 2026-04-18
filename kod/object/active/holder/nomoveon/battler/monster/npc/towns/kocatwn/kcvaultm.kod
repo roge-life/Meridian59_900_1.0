@@ -41,7 +41,7 @@ classvars:
       | MOB_NOMOVE | MOB_RECEIVE | MOB_VAULTMAN
    viOccupation = MOB_ROLE_VAULTMAN
 
-   viVault = VID_KOCATAN
+   viVault = VID_BARLOQUE
 
 properties:
    
