@@ -1,0 +1,67 @@
+name: CI with Manual Trigger
+run-name: ${{ github.actor }} is running a build.
+on:
+  # Standard trigger for pull requests
+  pull_request:
+    branches: [ main ]
+
+  # Manual trigger for on-demand runs
+workflow_dispatch:
+
+jobs:
+  pre_job:
+    # continue-on-error: true # Uncomment once integration is finished
+    runs-on: ubuntu-latest
+    # Map a step output to a job output
+    outputs:
+      should_skip: ${{ steps.skip_check.outputs.should_skip }}
+    steps:
+      - id: skip_check
+        uses: fkirc/skip-duplicate-actions@v5
+        with:
+          # All of these options are optional, so you can remove them if you are happy with the defaults
+          concurrent_skipping: 'always'
+          skip_after_successful_duplicate: 'true'
+  build:
+    needs: pre_job
+    if: needs.pre_job.outputs.should_skip != 'true'
+    runs-on: windows-2022
+    steps:
+      - uses: actions/checkout@v3
+      - uses: ilammy/msvc-dev-cmd@v1
+        with:
+            arch: x86
+      - name: Prep Dirs
+        run: nmake Aprep
+      - name: Build something
+        run: msbuild Meridian59.sln /p:Configuration=Release /p:Platform=Win32
+      - name: PostBuild
+        run: cmd /c postbuild.bat
+      - name: Upload client artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian_client
+          path: "./run/localclient"
+      - name: rsc0000.rsb
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian_rsc_map
+          path: |
+            ./run/localclient/resource/rsc0000.rsb
+            ./run/localclient/resource/*.roo
+      - name: Upload server artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian_server
+          path: "./run/server"
+      - name: Upload server resources
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian_server
+          path: "./resource"
+      - name: Upload utils artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: meridian_utils
+
+          path: "./bin"
