@@ -57,7 +57,7 @@ jobs:
       - name: Upload server resources
         uses: actions/upload-artifact@v4
         with:
-          name: meridian_server
+          name: meridian_resources
           path: "./resource"
       - name: Upload utils artifact
         uses: actions/upload-artifact@v4
