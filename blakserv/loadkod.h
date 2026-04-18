@@ -23,7 +23,7 @@ typedef struct loaded_bof_struct
 
 void InitLoadBof(void);
 void ResetLoadBof(void);
-void LoadBof(void);
+int LoadBof(void);
 void CloseAllFiles(void);
 
 #endif

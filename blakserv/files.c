@@ -35,6 +35,7 @@ bool FindMatchingFiles(const char *path, std::vector<std::string> *files)
  #elif BLAK_PLATFORM_LINUX
 
    struct dirent *entry;
+   files->clear();
    std::string spath = path;
    std::size_t last_found = spath.find_last_of("/\\");
    std::string sext = spath.substr(last_found+2);
@@ -89,5 +90,28 @@ bool BlakMoveFile(const char *source, const char *dest)
    
  #else
    #error No platform implementation of BlakMoveFile
+ #endif
+}
+
+bool BlakCreateDirectory(const char *path)
+{
+ #ifdef BLAK_PLATFORM_WINDOWS
+   
+   if (CreateDirectory(path, NULL))
+      return true;
+   if (GetLastError() == ERROR_ALREADY_EXISTS)
+      return true;
+   return false;
+   
+ #elif BLAK_PLATFORM_LINUX
+
+   if (mkdir(path, 0755) == 0)
+      return true;
+   if (errno == EEXIST)
+      return true;
+   return false;
+   
+ #else
+   #error No platform implementation of BlakCreateDirectory
  #endif
 }
