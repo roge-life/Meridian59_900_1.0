@@ -32,12 +32,12 @@ jobs:
       - name: PostBuild
         run: cmd /c postbuild.bat
       - name: Upload client artifact
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: meridian_client
           path: "./run/localclient"
       - name: rsc0000.rsb
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: meridian_rsc_map
           path: |
