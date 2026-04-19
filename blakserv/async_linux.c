@@ -85,11 +85,7 @@ void StartAsyncSocketUDPRead(SOCKET sock)
     pthread_t udp_thread;
     int* psock = (int*)malloc(sizeof(int));
     *psock = sock;
-
-    if (pthread_create(&udp_thread, NULL, &UDPWorker, psock) != 0)
-    {
-        free(psock);
-    }
+    pthread_create(&udp_thread, NULL, &UDPWorker, psock);
 }
 
 HANDLE StartAsyncNameLookup(char *peer_addr,char *buf)
@@ -111,7 +107,7 @@ void* NetworkWorker (void* _args)
    struct epoll_event* events;
 
    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-   evt.events = EPOLLIN | EPOLLET;
+   evt.events = EPOLLIN; // Level-triggered for listen socket
    evt.data.fd = args->socket;
 
    events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -141,29 +137,22 @@ void* NetworkWorker (void* _args)
             close(events[i].data.fd);
             continue;
          }
+         
          if(events[i].data.fd == args->socket)
          {
             while (true)
             {
                incoming_fd = AsyncSocketAccept(events[i].data.fd, FD_ACCEPT, 0, args->connection_type);
-               if (incoming_fd != SOCKET_ERROR)
+               if (incoming_fd != SOCKET_ERROR && incoming_fd != 0)
                {
                    if (MakeNonBlockingSocket(incoming_fd) == -1)
                    {
                        eprintf("error in network worker thread! (make nonblock socket)");
                    }
-
-                   // Add NEW session socket to this worker's epoll
+                   
                    evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN; // Switch to level-triggered for stability
-                   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt) == -1)
-                   {
-                       eprintf("NetworkWorker: epoll_ctl ADD failed for fd %d, error %d", incoming_fd, errno);
-                   }
-                   else
-                   {
-                       printf("NetworkWorker: successfully added fd %d to epoll %d\n", incoming_fd, epoll_fd);
-                   }
+                   evt.events = EPOLLIN; // Level-triggered for all sessions
+                   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt);
                }
                else
                {
@@ -174,16 +163,12 @@ void* NetworkWorker (void* _args)
          else
          {
             EnterSessionLock();
-            printf("NetworkWorker: data ready on fd %d\n", events[i].data.fd);
             AsyncSocketRead(events[i].data.fd);
             
-            // Dispatch logic specifically for maintenance
-            if (args->connection_type == SOCKET_MAINTENANCE_PORT) {
-               session_node *s = GetSessionBySocket(events[i].data.fd);
-               if (s != NULL) {
-                  printf("NetworkWorker: dispatching buffer for session %d\n", s->session_id);
-                  ProcessSessionBuffer(s);
-               }
+            // Dispatch logic for all connections on Linux
+            session_node *s = GetSessionBySocket(events[i].data.fd);
+            if (s != NULL) {
+               ProcessSessionBuffer(s);
             }
             
             LeaveSessionLock();
@@ -207,7 +192,7 @@ void* UDPWorker(void* arg)
     struct epoll_event* events;
 
     epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    evt.events = EPOLLIN | EPOLLET;
+    evt.events = EPOLLIN;
     evt.data.fd = sock;
 
     events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -272,14 +257,11 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
 
     if (connection_type == SOCKET_MAINTENANCE_PORT)
     {
-        printf("Maintenance connection accepted on fd %d from %s\n", new_sock, conn.name);
         if (!CheckMaintenanceMask(&peer_info,peer_len))
         {
-            printf("Maintenance connection on fd %d REJECTED by mask.\n", new_sock);
             closesocket(new_sock);
-            return SOCKET_ERROR; 
+            return SOCKET_ERROR;
         }
-        printf("Maintenance connection on fd %d ALLOWED by mask.\n", new_sock);
     }
 
     conn.type = CONN_SOCKET;
