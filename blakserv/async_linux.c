@@ -155,14 +155,14 @@ void* NetworkWorker (void* _args)
 
                    // Add NEW session socket to this worker's epoll
                    evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN | EPOLLET; 
+                   evt.events = EPOLLIN; // Switch to level-triggered for stability
                    if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt) == -1)
                    {
                        eprintf("NetworkWorker: epoll_ctl ADD failed for fd %d, error %d", incoming_fd, errno);
                    }
                    else
                    {
-                       dprintf("NetworkWorker: successfully added fd %d to epoll %d", incoming_fd, epoll_fd);
+                       printf("NetworkWorker: successfully added fd %d to epoll %d\n", incoming_fd, epoll_fd);
                    }
                }
                else
@@ -174,12 +174,16 @@ void* NetworkWorker (void* _args)
          else
          {
             EnterSessionLock();
+            printf("NetworkWorker: data ready on fd %d\n", events[i].data.fd);
             AsyncSocketRead(events[i].data.fd);
             
             // Dispatch logic specifically for maintenance
             if (args->connection_type == SOCKET_MAINTENANCE_PORT) {
                session_node *s = GetSessionBySocket(events[i].data.fd);
-               if (s != NULL) ProcessSessionBuffer(s);
+               if (s != NULL) {
+                  printf("NetworkWorker: dispatching buffer for session %d\n", s->session_id);
+                  ProcessSessionBuffer(s);
+               }
             }
             
             LeaveSessionLock();
