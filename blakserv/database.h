@@ -35,9 +35,8 @@
 #ifndef _DATABASE_H
 #define _DATABASE_H
 
-#include <Windows.h>
+#include "blakserv.h"
 #include <mysql.h>
-#include <process.h>
 
 #pragma region Structs/Enums
 typedef struct sql_queue_node sql_queue_node;
@@ -63,7 +62,7 @@ struct sql_queue_node
 
 struct sql_queue
 {
-	HANDLE mutex;
+	CRITICAL_SECTION mutex;
 	int count;
 	sql_queue_node* first;
 	sql_queue_node* last;

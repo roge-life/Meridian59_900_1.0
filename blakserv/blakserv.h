@@ -309,9 +309,7 @@ char * GetLastErrorStr();
 #include "maintenance.h"
 #include "block.h"
 
-#ifdef BLAK_PLATFORM_WINDOWS
 #include "database.h"
-#endif
 
 #include "jansson.h"
 

@@ -18,6 +18,8 @@
 #define O_TEXT 0
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
+#define _strdup strdup
+#define Sleep(ms) usleep((ms) * 1000)
 
 #define WM_APP      0x8000
 #define WM_QUIT     0x0012
