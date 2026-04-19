@@ -268,11 +268,14 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
 
     if (connection_type == SOCKET_MAINTENANCE_PORT)
     {
+        printf("Maintenance connection accepted on fd %d from %s\n", new_sock, conn.name);
         if (!CheckMaintenanceMask(&peer_info,peer_len))
         {
+            printf("Maintenance connection on fd %d REJECTED by mask.\n", new_sock);
             closesocket(new_sock);
-            return 0;
+            return SOCKET_ERROR; 
         }
+        printf("Maintenance connection on fd %d ALLOWED by mask.\n", new_sock);
     }
 
     conn.type = CONN_SOCKET;
