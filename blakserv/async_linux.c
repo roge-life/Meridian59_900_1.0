@@ -157,11 +157,17 @@ void* NetworkWorker (void* _args)
    struct epoll_event* events;
    session_node *s;
 
-   // Select the correct global epoll FD for this worker
+   // Use the global epoll FD initialized in InitAsyncConnections
    if (args->connection_type == SOCKET_PORT) {
        epoll_fd = game_epoll_fd;
    } else {
        epoll_fd = maintenance_epoll_fd;
+   }
+
+   if (epoll_fd == -1) {
+       eprintf("NetworkWorker: global epoll FD not initialized!");
+       free(args);
+       return NULL;
    }
 
    evt.events = EPOLLIN; // Level-triggered
@@ -174,12 +180,17 @@ void* NetworkWorker (void* _args)
       eprintf("error in network worker thread! (make nonblock socket)");   
    } 
 
-   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt);
+   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt) == -1) {
+       // Might already be added, ignore EEXIST
+       if (errno != EEXIST) {
+           eprintf("NetworkWorker: epoll_ctl ADD failed for listen socket %d, error %d", args->socket, errno);
+       }
+   }
 
    while (true)
    {
       num_fds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
-
+...
       if (num_fds < 0)
       {
          if (errno == EINTR) continue;
