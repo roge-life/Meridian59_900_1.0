@@ -131,6 +131,7 @@ int MainServer(int argc, char** argv)
    InitParseClient(); 
    InitProfiling();
    InitAsyncConnections();
+   AsyncSocketStart();
    UpdateSecurityRedbook();
    UnpauseTimers();
    ServiceTimers(); /* returns if server termiated */
