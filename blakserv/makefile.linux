@@ -22,7 +22,7 @@ BLAKSERVRUNDIR = $(TOPDIR)/run/server
 CFLAGS = -m32 -msse2 -I $(BLAKINCLUDEDIR) -I $(BLAKINCLUDEDIR)/mysql -g -x c++ -DBLAK_PLATFORM_LINUX -Wno-write-strings
 
 
-BLAKSERVLINKFLAGS = -m32 -lpthread -lrt -lmariadb
+BLAKSERVLINKFLAGS = -m32 -lpthread -lrt -lmysqlclient
 
 SOURCEDIR = .
 
