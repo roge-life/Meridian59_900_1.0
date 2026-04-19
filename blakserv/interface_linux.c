@@ -42,24 +42,26 @@ void* InterfaceMainLoop(void* arg)
 
    lprintf("Interface loop started\n");
 
+   if (!isatty(fileno(stdin)))
+   {
+      lprintf("Interface loop detected non-TTY, entering standby mode\n");
+      while (true)
+      {
+         sleep(3600);
+      }
+      return NULL;
+   }
+
    while (true)
    {
-      // If we're not a TTY, don't spin-print the prompt
-      if (isatty(fileno(stdin)))
-      {
-         printf("blakadm> ");
-         fflush(stdout);
-      }
+      printf("blakadm> ");
+      fflush(stdout);
 
       ssize_t nread = getline(&line, &size, stdin);
       if (nread == -1)
       {
-         // EOF reached (common when running as service). 
-         // We sleep to avoid high CPU usage and wait for the process to be killed externally
-         // or for another thread to trigger a shutdown.
-         lprintf("Interface loop hit EOF, sleeping...\n");
-         sleep(60);
-         continue;
+         lprintf("Interface loop hit EOF, exiting\n");
+         break;
       }
       
       // Remove trailing newline
