@@ -137,9 +137,12 @@ void StartAsyncSession(session_node *s)
             eprintf("StartAsyncSession: error making socket non-blocking for fd %d", s->conn.socket);
         }
         evt.data.fd = s->conn.socket;
-        evt.events = EPOLLIN | EPOLLET;
+        evt.events = EPOLLIN; // Level-triggered
         if (epoll_ctl(target_epoll, EPOLL_CTL_ADD, s->conn.socket, &evt) == -1) {
-            eprintf("StartAsyncSession: epoll_ctl ADD failed for fd %d, error %d", s->conn.socket, errno);
+            // Might already be added by worker, ignore EEXIST
+            if (errno != EEXIST) {
+                eprintf("StartAsyncSession: epoll_ctl ADD failed for fd %d, error %d", s->conn.socket, errno);
+            }
         }
     }
 }
@@ -161,7 +164,7 @@ void* NetworkWorker (void* _args)
        epoll_fd = maintenance_epoll_fd;
    }
 
-   evt.events = EPOLLIN | EPOLLET;
+   evt.events = EPOLLIN; // Level-triggered
    evt.data.fd = args->socket;
 
    events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -199,8 +202,23 @@ void* NetworkWorker (void* _args)
             while (true)
             {
                incoming_fd = AsyncSocketAccept(events[i].data.fd, FD_ACCEPT, 0, args->connection_type);
-               if (incoming_fd == SOCKET_ERROR || incoming_fd == 0)
+               if (incoming_fd != SOCKET_ERROR && incoming_fd != 0)
+               {
+                   if (MakeNonBlockingSocket(incoming_fd) == -1)
+                   {
+                       eprintf("error in network worker thread! (make nonblock socket)");
+                   }
+                   evt.data.fd = incoming_fd;
+                   evt.events = EPOLLIN; // Use level-triggered for stability
+                   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt) == -1)
+                   {
+                       eprintf("error in network worker thread! (epoll_ctl ADD failed for %d)", incoming_fd);
+                   }
+               }
+               else
+               {
                   break;
+               }
             }
          }
          else
@@ -236,7 +254,7 @@ void* UDPWorker(void* arg)
     struct epoll_event* events;
 
     epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    evt.events = EPOLLIN | EPOLLET;
+    evt.events = EPOLLIN; // Level-triggered
     evt.data.fd = sock;
 
     events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
