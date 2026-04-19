@@ -47,6 +47,11 @@ resource "digitalocean_firewall" "m59_firewall" {
     source_addresses = ["0.0.0.0/0", "::/0"]
   }
 
+  inbound_rule {
+    protocol         = "icmp"
+    source_addresses = ["0.0.0.0/0", "::/0"]
+  }
+
   outbound_rule {
     protocol              = "tcp"
     port_range            = "1-65535"
@@ -63,11 +68,4 @@ resource "digitalocean_firewall" "m59_firewall" {
     protocol              = "icmp"
     destination_addresses = ["0.0.0.0/0", "::/0"]
   }
-}
-
-resource "digitalocean_record" "server_record" {
-  domain = var.domain_name
-  type   = "A"
-  name   = var.subdomain
-  value  = digitalocean_droplet.m59_server.ipv4_address
 }

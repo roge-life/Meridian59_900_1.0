@@ -20,15 +20,3 @@ variable "ssh_key_name" {
   description = "The name of the SSH key on DigitalOcean to grant root access"
   type        = string
 }
-
-variable "domain_name" {
-  description = "Base domain name"
-  type        = string
-  default     = "emfiftynine.info"
-}
-
-variable "subdomain" {
-  description = "Subdomain for the server"
-  type        = string
-  default     = "900"
-}
