@@ -1,0 +1,70 @@
+# -------------------------------------------
+# Meridian 59 Server Configuration
+# Domain: 900.emfiftynine.info
+# -------------------------------------------
+
+[Path]               
+Bof                  loadkod/
+Memmap               memmap/
+Rsc                  rsc/
+Rooms                rooms/
+Motd                 .
+Channel              channel/
+LoadSave             savegame/
+Forms                .
+Kodbase              .
+PackageFile          .
+
+[Socket]             
+Port 5959
+
+[Channel]            
+DebugDisk            Yes
+ErrorDisk            Yes
+LogDisk              Yes
+
+[Login]              
+
+[Inactive]           
+
+[MessageOfTheDay]               
+
+[Session]            
+
+[Lock]               
+
+[Resource]           
+Language 0
+
+[Memory]             
+
+[Auto]                            
+
+[Update]             
+
+[Console]            
+
+[Rights]             
+
+[Constants]          
+Enabled   Yes
+Filename  blakston.khd
+
+[Advertise]          
+File1                ad1.avi
+Url1                 http://900.emfiftynine.info/
+File2                ad2.avi
+Url2                 http://900.emfiftynine.info/forums/
+
+[Debug]              
+
+[Security]           
+
+[Service]            
+
+[MySQL]
+Enabled     No
+Host        127.0.0.1
+Username    blakserv
+Password    blaks3kr1t
+Database    blakserv
