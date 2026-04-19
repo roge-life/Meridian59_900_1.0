@@ -43,10 +43,20 @@ void* InterfaceMainLoop(void* arg)
 
    while (true)
    {
-      printf("blakadm> ");
+      // If we're not a TTY, don't spin-print the prompt
+      if (isatty(fileno(stdin)))
+      {
+         printf("blakadm> ");
+         fflush(stdout);
+      }
+
       if (getline(&line, &size, stdin) == -1)
       {
-         break;
+         // EOF reached (common when running as service). 
+         // We sleep to avoid high CPU usage and wait for the process to be killed externally
+         // or for another thread to trigger a shutdown.
+         sleep(60);
+         continue;
       }
       
       // Remove trailing newline
