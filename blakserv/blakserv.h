@@ -162,7 +162,9 @@ enum
 #include <sys/stat.h>
 #include <time.h>
 #include <math.h>
+#ifdef BLAK_PLATFORM_WINDOWS
 #include <ppl.h>
+#endif
 
 #include "btime.h"
 
