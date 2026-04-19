@@ -49,7 +49,7 @@ void* InterfaceMainLoop(void* arg)
       {
          sleep(3600);
       }
-      return NULL;
+      pthread_exit(NULL);
    }
 
    while (true)
