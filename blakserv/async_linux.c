@@ -107,7 +107,7 @@ void* NetworkWorker (void* _args)
    struct epoll_event* events;
 
    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-   evt.events = EPOLLIN; // Level-triggered for listen socket
+   evt.events = EPOLLIN | EPOLLET; // Edge-triggered (as originally used)
    evt.data.fd = args->socket;
 
    events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -151,7 +151,7 @@ void* NetworkWorker (void* _args)
                    }
                    
                    evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN; // Level-triggered for all sessions
+                   evt.events = EPOLLIN | EPOLLET; 
                    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt);
                }
                else
@@ -165,10 +165,11 @@ void* NetworkWorker (void* _args)
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
             
-            // Dispatch logic for all connections on Linux
-            session_node *s = GetSessionBySocket(events[i].data.fd);
-            if (s != NULL) {
-               ProcessSessionBuffer(s);
+            // SURGICAL FIX: Only dispatch for maintenance port.
+            // Regular game sessions are polled by the main loop (PollSessions).
+            if (args->connection_type == SOCKET_MAINTENANCE_PORT) {
+               session_node *s = GetSessionBySocket(events[i].data.fd);
+               if (s != NULL) ProcessSessionBuffer(s);
             }
             
             LeaveSessionLock();
@@ -192,7 +193,7 @@ void* UDPWorker(void* arg)
     struct epoll_event* events;
 
     epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    evt.events = EPOLLIN;
+    evt.events = EPOLLIN | EPOLLET;
     evt.data.fd = sock;
 
     events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -260,7 +261,16 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
         if (!CheckMaintenanceMask(&peer_info,peer_len))
         {
             closesocket(new_sock);
-            return SOCKET_ERROR;
+            return 0;
+        }
+    }
+    else
+    {
+        if (!CheckBlockList(&peer_addr))
+        {
+            lprintf("Blocked connection from %s.\n", conn.name);
+            closesocket(new_sock);
+            return 0;
         }
     }
 
