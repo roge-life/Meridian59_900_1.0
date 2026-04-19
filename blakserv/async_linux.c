@@ -354,7 +354,38 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
 
 Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr)
 {
-    return True; // Temporarily allow all for debugging
+    struct in6_addr mask;
+    char peer_name[INET6_ADDRSTRLEN];
+    int i;
+    BOOL skip;
+
+    inet_ntop(AF_INET6, &addr->sin6_addr, peer_name, sizeof(peer_name));
+
+    for (i=0;i<num_maintenance_masks;i++)
+    {
+        if (maintenance_masks[i][0] == '*' && maintenance_masks[i][1] == '\0') return True;
+
+        if (inet_pton(AF_INET6, maintenance_masks[i], &mask) != 1)
+        {
+            eprintf("CheckMaintenanceMask has invalid configured mask %s\n", maintenance_masks[i]);
+            continue;
+        }
+
+        skip = 0;
+        for (int k = 0; k < 16; k++)
+        {
+            if (mask.s6_addr[k] != 0 && mask.s6_addr[k] != addr->sin6_addr.s6_addr[k])
+            {
+                skip = 1;
+                break;
+            }
+        }
+
+        if (!skip) return True;
+    }
+    
+    lprintf("Maintenance connection from %s REJECTED by mask.\n", peer_name);
+    return False;
 }
 
 int MakeNonBlockingSocket(int s)
