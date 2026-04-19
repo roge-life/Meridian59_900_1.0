@@ -61,6 +61,7 @@ void* InterfaceMainLoop(void* arg)
 
    free(line);
    MessagePost(main_thread_id,WM_QUIT,0,0);
+   return NULL;
 }
 
 void StartupPrintf(const char *fmt,...)

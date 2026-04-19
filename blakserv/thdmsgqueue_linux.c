@@ -17,6 +17,8 @@ BOOL InitMsgQueue()
    Msgs.count = 0;
    pthread_mutex_init(&Msgs.mux, NULL);
    pthread_cond_init(&Msgs.msgEvent, NULL);
+
+   return TRUE;
 }
                
 bool WaitForAnyMessageWithTimeout(INT64 ms)
