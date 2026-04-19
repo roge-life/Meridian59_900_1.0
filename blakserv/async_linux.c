@@ -7,6 +7,7 @@
 // Meridian is a registered trademark.
 
 #include "blakserv.h"
+#include <sys/epoll.h>
 
 #define MAX_EPOLL_EVENTS 64
 #define EPOLL_QUEUE_LEN 64
@@ -14,6 +15,10 @@
 pthread_t network_thread;
 pthread_t maintenance_thread;
 pthread_t udp_thread;
+
+// Global epoll FDs so StartAsyncSession can register new sockets
+int game_epoll_fd = -1;
+int maintenance_epoll_fd = -1;
 
 #define MAX_MAINTENANCE_MASKS 15
 char *maintenance_masks[MAX_MAINTENANCE_MASKS];
@@ -33,7 +38,6 @@ Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
 
 void InitAsyncConnections(void)
 {
-
     maintenance_buffer = (char *)malloc(strlen(ConfigStr(SOCKET_MAINTENANCE_MASK)) + 1);
     strcpy(maintenance_buffer,ConfigStr(SOCKET_MAINTENANCE_MASK));
 
@@ -46,11 +50,16 @@ void InitAsyncConnections(void)
             break;
         maintenance_masks[num_maintenance_masks] = strtok(NULL,";");
     }
+
+    // Initialize global epoll descriptors
+    game_epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
+    maintenance_epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
 }
 
 void ExitAsyncConnections(void)
 {
-    // TODO: EMPTY function!
+    if (game_epoll_fd != -1) close(game_epoll_fd);
+    if (maintenance_epoll_fd != -1) close(maintenance_epoll_fd);
 }
 
 void StartAsyncSocketAccept(SOCKET sock,int connection_type)
@@ -113,20 +122,43 @@ HANDLE StartAsyncNameLookup(char *peer_addr,char *buf)
 
 void StartAsyncSession(session_node *s)
 {
-   // TODO: stub
+    struct epoll_event evt;
+    int target_epoll = -1;
+
+    if (s->state == STATE_SYNCHED) {
+        target_epoll = game_epoll_fd;
+    } else if (s->state == STATE_MAINTENANCE || s->state == STATE_ADMIN) {
+        target_epoll = maintenance_epoll_fd;
+    }
+
+    if (target_epoll != -1) {
+        if (MakeNonBlockingSocket(s->conn.socket) == -1) {
+            eprintf("StartAsyncSession: error making socket non-blocking for fd %d", s->conn.socket);
+        }
+        evt.data.fd = s->conn.socket;
+        evt.events = EPOLLIN | EPOLLET;
+        if (epoll_ctl(target_epoll, EPOLL_CTL_ADD, s->conn.socket, &evt) == -1) {
+            eprintf("StartAsyncSession: epoll_ctl ADD failed for fd %d, error %d", s->conn.socket, errno);
+        }
+    }
 }
 
 void* NetworkWorker (void* _args)
 {
    nWrkArgs* args = (nWrkArgs*) _args;
-
    int epoll_fd;
    int incoming_fd;
    int num_fds;
    struct epoll_event evt;
    struct epoll_event* events;
 
-   epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
+   // Select the correct global epoll FD for this worker
+   if (args->connection_type == SOCKET_PORT) {
+       epoll_fd = game_epoll_fd;
+   } else {
+       epoll_fd = maintenance_epoll_fd;
+   }
+
    evt.events = EPOLLIN | EPOLLET;
    evt.data.fd = args->socket;
 
@@ -165,20 +197,8 @@ void* NetworkWorker (void* _args)
             while (true)
             {
                incoming_fd = AsyncSocketAccept(events[i].data.fd, FD_ACCEPT, 0, args->connection_type);
-               if (incoming_fd != SOCKET_ERROR && incoming_fd != 0)
-               {
-                   if (MakeNonBlockingSocket(incoming_fd) == -1)
-                   {
-                       eprintf("error in network worker thread! (make nonblock socket)");
-                   }
-                   evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN | EPOLLET;
-                   epoll_ctl(epoll_fd,EPOLL_CTL_ADD,incoming_fd,&evt);
-               }
-               else
-               {
+               if (incoming_fd == SOCKET_ERROR || incoming_fd == 0)
                   break;
-               }
             }
          }
          else
