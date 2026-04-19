@@ -37,9 +37,10 @@ void InitInterface(void)
 
 void* InterfaceMainLoop(void* arg)
 {
-   char *line = (char*) malloc(200);
-   size_t size;
-   //char buf[200];
+   char *line = NULL;
+   size_t size = 0;
+
+   lprintf("Interface loop started\n");
 
    while (true)
    {
@@ -50,11 +51,13 @@ void* InterfaceMainLoop(void* arg)
          fflush(stdout);
       }
 
-      if (getline(&line, &size, stdin) == -1)
+      ssize_t nread = getline(&line, &size, stdin);
+      if (nread == -1)
       {
          // EOF reached (common when running as service). 
          // We sleep to avoid high CPU usage and wait for the process to be killed externally
          // or for another thread to trigger a shutdown.
+         lprintf("Interface loop hit EOF, sleeping...\n");
          sleep(60);
          continue;
       }
@@ -64,18 +67,21 @@ void* InterfaceMainLoop(void* arg)
 
       if (strcmp(line, "quit") == 0)
       {
+         lprintf("Interface loop got quit command\n");
          break;
       }
 
       if (strlen(line) > 0)
       {
+         lprintf("Interface loop executing command: %s\n", line);
          EnterServerLock();
          TryAdminCommand(console_session_id, line);
          LeaveServerLock();
       }
    }
 
-   free(line);
+   lprintf("Interface loop exiting\n");
+   if (line) free(line);
    MessagePost(main_thread_id,WM_QUIT,0,0);
    return NULL;
 }
