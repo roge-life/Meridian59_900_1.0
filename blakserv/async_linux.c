@@ -327,12 +327,14 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
     s = CreateSession(conn);
     if (s != NULL)
     {
-        StartAsyncSession(s);
+        // Set state BEFORE starting async session so StartAsyncSession knows which epoll to use
         switch (connection_type)
         {
         case SOCKET_PORT : InitSessionState(s,STATE_SYNCHED); break;
         case SOCKET_MAINTENANCE_PORT : InitSessionState(s,STATE_MAINTENANCE); break;
         }
+        
+        StartAsyncSession(s);
         s->conn.hLookup = 0;
     }
     LeaveServerLock();
