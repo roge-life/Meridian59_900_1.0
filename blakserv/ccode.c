@@ -303,7 +303,10 @@ int C_GodLog(int object_id,local_var_type *local_vars,
 				else
 				{
 					strcat(buf,"&");
-					strcat(buf,c->class_name);
+					if (c->class_name != NULL)
+						strcat(buf,c->class_name);
+					else
+						sprintf(buf+strlen(buf),"<class %i no name>", (int)each_val.v.data);
 				}
 			}
 			break;
@@ -446,7 +449,10 @@ int C_Debug(int object_id,local_var_type *local_vars,
 				else
 				{
 					strcat(buf,"&");
-					strcat(buf,c->class_name);
+					if (c->class_name != NULL)
+						strcat(buf,c->class_name);
+					else
+						sprintf(buf+strlen(buf),"<class %i no name>", (int)each_val.v.data);
 				}
 			}
 			break;

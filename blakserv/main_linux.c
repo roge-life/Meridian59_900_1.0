@@ -77,6 +77,12 @@ int MainServer(int argc, char** argv)
 	
    OpenDefaultChannels();
 
+   if (ConfigBool(MYSQL_ENABLED))
+   {
+      lprintf("Starting MySQL writer");
+      MySQLInit(ConfigStr(MYSQL_HOST), ConfigStr(MYSQL_USERNAME), ConfigStr(MYSQL_PASSWORD), ConfigStr(MYSQL_DB));
+   }
+
    lprintf("Starting %s\n",BlakServLongVersionString());
 
    InitClass();
@@ -103,7 +109,10 @@ int MainServer(int argc, char** argv)
    InitTables();
    AddBuiltInDLlist();
    LoadMotd();
-   LoadBof();
+   if (LoadBof() == 0)
+   {
+      lprintf("Warning: No .bof files found in %s. Server will have no game logic.\n", ConfigStr(PATH_MEMMAP));
+   }
    LoadRsc();
    LoadKodbase();
    LoadAdminConstants();
@@ -122,11 +131,13 @@ int MainServer(int argc, char** argv)
    InitParseClient(); 
    InitProfiling();
    InitAsyncConnections();
+   AsyncSocketStart();
    UpdateSecurityRedbook();
    UnpauseTimers();
    ServiceTimers(); /* returns if server termiated */
 
    MainExitServer();
+   return 0;
 }
 
 void Daemonize()
@@ -197,6 +208,9 @@ void MainExitServer()
    ResetObject();
    ResetMessage();
    ResetClass();
+
+   if (ConfigBool(MYSQL_ENABLED))
+      MySQLEnd();
 
    ResetConfig();
 	

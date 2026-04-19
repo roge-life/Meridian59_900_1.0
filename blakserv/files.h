@@ -22,5 +22,6 @@ typedef std::vector<std::string> StringVector;
 bool FindMatchingFiles(const char *path, StringVector *files);
 
 bool BlakMoveFile(const char *source, const char *dest);
+bool BlakCreateDirectory(const char *path);
 
 #endif

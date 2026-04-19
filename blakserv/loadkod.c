@@ -39,7 +39,7 @@ void InitLoadBof(void)
 	mem_files = NULL;
 }
 
-void LoadBof(void)
+int LoadBof(void)
 {
 	char file_load_path[MAX_PATH+FILENAME_MAX];
 	char file_copy_path[MAX_PATH+FILENAME_MAX];
@@ -86,6 +86,8 @@ void LoadBof(void)
 	SetMessagesPropagate();
 
 	dprintf("LoadBof loaded %i of %i found .bof files\n",files_loaded,files.size());
+
+   return files_loaded;
 }
 
 void ResetLoadBof(void)

@@ -9,6 +9,7 @@
 #ifndef _ASYNC_LINUX_H
 #define _ASYNC_LINUX_H
 void StartAsyncSocketAccept(SOCKET sock,int connection_type);
+void StartAsyncSocketUDPRead(SOCKET sock);
 HANDLE StartAsyncNameLookup(char *peer_addr,char *buf);
 void StartAsyncSession(session_node *s);
 int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type);

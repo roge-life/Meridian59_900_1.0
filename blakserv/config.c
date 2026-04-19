@@ -54,13 +54,13 @@ typedef struct
 config_table_type config_table[] =
 {
 { PATH_GROUP,             F, "[Path]",        CONFIG_GROUP, "" },
-{ PATH_BOF,               F, "Bof",           CONFIG_PATH,  "." },
-{ PATH_MEMMAP,            F, "Memmap",        CONFIG_PATH,  "." },
-{ PATH_RSC,               F, "Rsc",           CONFIG_PATH,  "." },
-{ PATH_ROOMS,             F, "Rooms",         CONFIG_PATH,  "." },
+{ PATH_BOF,               F, "Bof",           CONFIG_PATH,  "loadkod" },
+{ PATH_MEMMAP,            F, "Memmap",        CONFIG_PATH,  "memmap" },
+{ PATH_RSC,               F, "Rsc",           CONFIG_PATH,  "rsc" },
+{ PATH_ROOMS,             F, "Rooms",         CONFIG_PATH,  "rooms" },
 { PATH_MOTD,              F, "Motd",          CONFIG_PATH,  "." },
-{ PATH_CHANNEL,           F, "Channel",       CONFIG_PATH,  "." },
-{ PATH_LOADSAVE,          F, "LoadSave",      CONFIG_PATH,  "." },
+{ PATH_CHANNEL,           F, "Channel",       CONFIG_PATH,  "channel" },
+{ PATH_LOADSAVE,          F, "LoadSave",      CONFIG_PATH,  "savegame" },
 { PATH_FORMS,             F, "Forms",         CONFIG_PATH,  "." },
 { PATH_KODBASE,           F, "Kodbase",       CONFIG_PATH,  "." },
 { PATH_PACKAGE_FILE,      F, "PackageFile",   CONFIG_PATH,  "." },
@@ -282,7 +282,10 @@ const char * AddConfig(int config_id,const char *config_data,int config_type,int
 	 s[len-1] = 0;
       
       if (stat(s,&file_stat) != 0 || !(file_stat.st_mode & S_IFDIR))
-	 return "invalid path--not found";
+      {
+         if (!BlakCreateDirectory(s))
+	        return "invalid path--not found";
+      }
       
       if (s[len-1] != ':')
 	 strcat(s,"\\");
@@ -293,11 +296,14 @@ const char * AddConfig(int config_id,const char *config_data,int config_type,int
     case CONFIG_PATH :
         len = strlen(s);
 
-        if (s[len-1] == '/')
+        if (len > 0 && (s[len-1] == '/' || s[len-1] == '\\'))
             s[len-1] = 0;
 
         if (stat(s,&file_stat) != 0 || !(file_stat.st_mode & S_IFDIR))
-            return "invalid path--not found";
+        {
+            if (!BlakCreateDirectory(s))
+                return "invalid path--not found";
+        }
 
         if (s[len-1] != ':')
             strcat(s,"/");

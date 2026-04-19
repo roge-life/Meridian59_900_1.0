@@ -37,30 +37,55 @@ void InitInterface(void)
 
 void* InterfaceMainLoop(void* arg)
 {
-   char *line = (char*) malloc(200);
-   size_t size;
-   //char buf[200];
+   char *line = NULL;
+   size_t size = 0;
 
-   while (strcmp(line,"quit") != 0)
+   lprintf("Interface loop started\n");
+
+   if (!isatty(fileno(stdin)))
+   {
+      lprintf("Interface loop detected non-TTY, entering standby mode\n");
+      while (true)
+      {
+         sleep(3600);
+      }
+      pthread_exit(NULL);
+   }
+
+   while (true)
    {
       printf("blakadm> ");
-      if (getline(&line, &size, stdin) != -1)
+      fflush(stdout);
+
+      ssize_t nread = getline(&line, &size, stdin);
+      if (nread == -1)
       {
+         lprintf("Interface loop hit EOF, exiting\n");
+         break;
+      }
       
+      // Remove trailing newline
+      line[strcspn(line, "\n")] = 0;
+
+      if (strcmp(line, "quit") == 0)
+      {
+         lprintf("Interface loop got quit command\n");
+         break;
+      }
+
+      if (strlen(line) > 0)
+      {
+         lprintf("Interface loop executing command: %s\n", line);
          EnterServerLock();
-
-         // TODO: in windows this uses a set char array of size 200, no bounds checking
-         // is being done here yet
-         //TryAdminCommand(console_session_id,buf);
-         TryAdminCommand(console_session_id,line);
-
+         TryAdminCommand(console_session_id, line);
          LeaveServerLock();
-
       }
    }
 
-   free(line);
+   lprintf("Interface loop exiting\n");
+   if (line) free(line);
    MessagePost(main_thread_id,WM_QUIT,0,0);
+   return NULL;
 }
 
 void StartupPrintf(const char *fmt,...)

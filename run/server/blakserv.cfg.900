@@ -1,5 +1,6 @@
 # -------------------------------------------
 # Meridian 59 Server Configuration
+# Domain: 900.emfiftynine.info
 # -------------------------------------------
 
 [Path]               
@@ -50,6 +51,10 @@ Enabled   Yes
 Filename  blakston.khd
 
 [Advertise]          
+File1                ad1.avi
+Url1                 http://900.emfiftynine.info/
+File2                ad2.avi
+Url2                 http://900.emfiftynine.info/forums/
 
 [Debug]              
 

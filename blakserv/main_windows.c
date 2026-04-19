@@ -78,7 +78,10 @@ void MainServer()
 	InitTables();
 	AddBuiltInDLlist();
 	LoadMotd();
-	LoadBof();
+	if (LoadBof() == 0)
+	{
+		lprintf("Warning: No .bof files found in %s. Server will have no game logic.\n", ConfigStr(PATH_MEMMAP));
+	}
 	LoadRsc();
 	LoadKodbase();
 	LoadAdminConstants();

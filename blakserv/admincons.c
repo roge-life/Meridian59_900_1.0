@@ -97,7 +97,7 @@ void LoadAdminConstants(void)
 
       value_str = strtok(NULL, "= \t\n");
 
-      if (name_str == NULL || name_str[0] == '/')
+      if (value_str == NULL)
       {
          eprintf("LoadAdminConstants error reading value on line %i\n", lineno);
          continue;

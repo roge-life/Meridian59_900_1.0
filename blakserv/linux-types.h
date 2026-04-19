@@ -18,6 +18,18 @@
 #define O_TEXT 0
 #define stricmp strcasecmp
 #define strnicmp strncasecmp
+#define _strdup strdup
+#define Sleep(ms) usleep((ms) * 1000)
+#define WSAGetLastError() GetLastError()
+#define ZeroMemory(p, sz) memset((p), 0, (sz))
+#define memcpy_s(dest, destsz, src, count) memcpy((dest), (src), (count))
+
+#define PostThreadMessage(id, msg, w, l) (0)
+#define INVALID_SESSION -1
+
+#define __forceinline inline
+#define __cdecl
+#define _MM_ALIGN16
 
 #define WM_APP      0x8000
 #define WM_QUIT     0x0012
@@ -63,7 +75,16 @@ typedef LPCSTR LPCTSTR;
 #define INVALID_SOCKET -1
 #define SOCKADDR_IN6 sockaddr_in6
 #define SOCKADDR sockaddr
-#define IN6_ADDR in6_addr
+
+typedef struct in6_addr_windows {
+    union {
+        BYTE  Byte[16];
+        WORD  Word[8];
+    } u;
+} IN6_ADDR_WINDOWS;
+
+#define IN6_ADDR IN6_ADDR_WINDOWS
+
 #define FD_READ     1
 #define FD_WRITE    2
 #define FD_OOB      4

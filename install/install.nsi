@@ -6,7 +6,7 @@
 ; http://nsis.sourceforge.net/UAC_plug-in
 ; http://nsis.sourceforge.net/FontName_plug-in
 ;
-; Change instances of Meridian 105 and Server 105 to your server name/number
+; Change instances of Meridian 900 and Server 900 to your server name/number
 ; to avoid conflicts. Use $PROGRAMFILES\Open Meridian\Meridian servernum as
 ; install directory for compatibility with the Open Meridian Patcher.
 
@@ -22,17 +22,17 @@ LoadLanguageFile "${NSISDIR}\Contrib\Language files\English.nlf"
 LoadLanguageFile "${NSISDIR}\Contrib\Language files\German.nlf"
 
 ; The name of the installer
-Name "Meridian 59 Server 105"
+Name "Meridian 59 Server 900"
 
 ; The file to write
-OutFile "meridian59_server105_install.exe"
+OutFile "meridian59_server900_install.exe"
 
 ; The default installation directory
-InstallDir "$PROGRAMFILES\Open Meridian\Meridian 105"
+InstallDir "$PROGRAMFILES\Open Meridian\Meridian 900"
 
 ; Registry key to check for directory (so if you install again, it will 
 ; overwrite the old one automatically)
-InstallDirRegKey HKLM "Software\Meridian 105" "Install_Dir"
+InstallDirRegKey HKLM "Software\Meridian 900" "Install_Dir"
 
 ; Compress to the max
 SetCompressor /SOLID LZMA
@@ -115,13 +115,13 @@ Section "Meridian 59 (required)"
   SendMessage ${HWND_BROADCAST} ${WM_FONTCHANGE} 0 0 /TIMEOUT=5000
 
   ; Write the installation path into the registry
-  WriteRegStr HKLM "SOFTWARE\Meridian 105" "Install_Dir" "$INSTDIR"
+  WriteRegStr HKLM "SOFTWARE\Meridian 900" "Install_Dir" "$INSTDIR"
   
   ; Write the uninstall keys for Windows
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 105" "DisplayName" "Meridian 59 Server 105"
-  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 105" "UninstallString" '"$INSTDIR\uninstall.exe"'
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 105" "NoModify" 1
-  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 105" "NoRepair" 1
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 900" "DisplayName" "Meridian 59 Server 900"
+  WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 900" "UninstallString" '"$INSTDIR\uninstall.exe"'
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 900" "NoModify" 1
+  WriteRegDWORD HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 900" "NoRepair" 1
   WriteUninstaller "uninstall.exe"
 
   ; Copy resources
@@ -155,14 +155,14 @@ SectionEnd
 Section "Desktop Shortcut"
   ; Set to run in data directory
   SetOutPath $INSTDIR
-  CreateShortCut "$DESKTOP\Meridian 59 Server 105.lnk" "$INSTDIR\meridian.exe" "" "$INSTDIR\meridian.exe" 0
+  CreateShortCut "$DESKTOP\Meridian 59 Server 900.lnk" "$INSTDIR\meridian.exe" "" "$INSTDIR\meridian.exe" 0
 SectionEnd
 
 ; Optional section
 Section "Start Menu Shortcuts"
   CreateDirectory "$SMPROGRAMS\OpenMeridian"
   SetOutPath $INSTDIR
-  CreateShortCut "$SMPROGRAMS\OpenMeridian\Meridian 59 Server 105.lnk" "$INSTDIR\meridian.exe" "" "$INSTDIR\meridian.exe" 0
+  CreateShortCut "$SMPROGRAMS\OpenMeridian\Meridian 59 Server 900.lnk" "$INSTDIR\meridian.exe" "" "$INSTDIR\meridian.exe" 0
 SectionEnd
 
 ;--------------------------------
@@ -202,12 +202,12 @@ FunctionEnd
 
 Section "Uninstall"
   ; Remove registry keys
-  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 105"
-  DeleteRegKey HKLM "SOFTWARE\Meridian 105"
+  DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Meridian 59 Server 900"
+  DeleteRegKey HKLM "SOFTWARE\Meridian 900"
 
   ; Remove shortcuts, if any
-  Delete "$SMPROGRAMS\OpenMeridian\Meridian 59 Server 105.lnk"
-  Delete "$DESKTOP\Meridian 59 Server 105.lnk"
+  Delete "$SMPROGRAMS\OpenMeridian\Meridian 59 Server 900.lnk"
+  Delete "$DESKTOP\Meridian 59 Server 900.lnk"
 
   ; Remove directories used
   RMDir /r "$INSTDIR"

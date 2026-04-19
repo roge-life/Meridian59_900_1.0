@@ -23,7 +23,11 @@
 #define SLEEPINIT				100
 
 sql_queue queue			= {0, 0, 0, 0};
+#ifdef BLAK_PLATFORM_WINDOWS
 HANDLE hMySQLWorker		= 0;
+#else
+pthread_t hMySQLWorker  = 0;
+#endif
 sql_worker_state state	= STOPPED;
 MYSQL* mysql			= 0;
 char* host				= 0;
@@ -346,7 +350,11 @@ void MySQLInit(char* Host, char* User, char* Password, char* DB)
 	db			= _strdup(DB);
 
 	// spawn workthread
+#ifdef BLAK_PLATFORM_WINDOWS
 	hMySQLWorker = (HANDLE) _beginthread(_MySQLWorker, 0, 0);
+#else
+    pthread_create(&hMySQLWorker, NULL, (void* (*)(void*))_MySQLWorker, NULL);
+#endif
 
 	// sleep a bit to let workthread get initialized
 	// e.g. no one calls MySQLRecordXY right after Init
@@ -787,9 +795,17 @@ BOOL MySQLRecordGuildDisband(char* name)
 #pragma endregion
 
 #pragma region Internal
+#ifdef BLAK_PLATFORM_WINDOWS
 void __cdecl _MySQLWorker(void* parameters)
+#else
+void* _MySQLWorker(void* parameters)
+#endif
 {
+#ifdef BLAK_PLATFORM_WINDOWS
 	my_bool reconnect		= 1;
+#else
+    bool reconnect          = true;
+#endif
 	int		processedcount	= 0;
 
 	/******************************************
@@ -797,7 +813,7 @@ void __cdecl _MySQLWorker(void* parameters)
 	/******************************************/
 		
 	// init the queue
-	queue.mutex = CreateMutex(NULL, FALSE, NULL);
+	InitializeCriticalSection(&queue.mutex);
 	queue.count = 0;
 	queue.first = 0;
 	queue.last = 0;
@@ -806,7 +822,11 @@ void __cdecl _MySQLWorker(void* parameters)
 	mysql = mysql_init(NULL);
 	
 	if (!mysql)
+#ifdef BLAK_PLATFORM_WINDOWS
 		return;
+#else
+        return NULL;
+#endif
 	
 	// enable auto-reconnect
 	mysql_options(mysql, MYSQL_OPT_RECONNECT, &reconnect);
@@ -900,14 +920,17 @@ void __cdecl _MySQLWorker(void* parameters)
 	while(_MySQLDequeue(FALSE));
 
 	// delete mutex
-	if (queue.mutex)
-		CloseHandle(queue.mutex);
+	DeleteCriticalSection(&queue.mutex);
 
 	// mark stopped
 	state = STOPPED;
 
 	// finalize thread
+#ifdef BLAK_PLATFORM_WINDOWS
 	_endthread();
+#else
+    return NULL;
+#endif
 };
 
 void _MySQLVerifySchema()
@@ -961,35 +984,34 @@ BOOL _MySQLEnqueue(sql_queue_node* Node)
 	Node->next = 0;
 
 	// try to lock for multithreaded access
-	if (WaitForSingleObject(queue.mutex, RECORD_ENQUEUE_TIMEOUT) == WAIT_OBJECT_0)
-	{
-		// got space in queue left
-		if (queue.count < MAX_RECORD_QUEUE)
-		{
-			// empty queue
-			if (queue.count == 0 ||
-				queue.first == NULL ||
-				queue.last == NULL)
-			{
-				queue.first = Node;
-				queue.last = Node;
-				queue.count = 1;
-			}
+	EnterCriticalSection(&queue.mutex);
+	
+    // got space in queue left
+    if (queue.count < MAX_RECORD_QUEUE)
+    {
+        // empty queue
+        if (queue.count == 0 ||
+            queue.first == NULL ||
+            queue.last == NULL)
+        {
+            queue.first = Node;
+            queue.last = Node;
+            queue.count = 1;
+        }
 
-			// not empty
-			else
-			{
-				queue.last->next = Node;
-				queue.last = Node;
-				queue.count++;
-			}
+        // not empty
+        else
+        {
+            queue.last->next = Node;
+            queue.last = Node;
+            queue.count++;
+        }
 
-			enqueued = TRUE;
-		}
-		
-		// release lock
-		ReleaseMutex(queue.mutex);		
-	}
+        enqueued = TRUE;
+    }
+    
+    // release lock
+    LeaveCriticalSection(&queue.mutex);		
 
 	return enqueued;
 };
@@ -1000,25 +1022,24 @@ BOOL _MySQLDequeue(BOOL processNode)
 	sql_queue_node*	node		= 0;
 			
 	// try to lock for multithreaded access
-	if (WaitForSingleObject(queue.mutex, RECORD_ENQUEUE_TIMEOUT) == WAIT_OBJECT_0)
-	{
-		// dequeue from the beginning (FIFO)
-		if (queue.first)
-		{
-			// get first element to process
-			node = queue.first;
-			
-			// update queue, set first item to the next one
-			queue.first = node->next;
-			queue.count--;
+	EnterCriticalSection(&queue.mutex);
+	
+    // dequeue from the beginning (FIFO)
+    if (queue.first)
+    {
+        // get first element to process
+        node = queue.first;
+        
+        // update queue, set first item to the next one
+        queue.first = node->next;
+        queue.count--;
 
-			// save that we dequeued a node
-			dequeued = TRUE;			
-		}
-		
-		// release lock
-		ReleaseMutex(queue.mutex);		
-	}
+        // save that we dequeued a node
+        dequeued = TRUE;			
+    }
+    
+    // release lock
+    LeaveCriticalSection(&queue.mutex);		
 	
 	// if we dequeued one, process it
 	if (node)
