@@ -141,22 +141,29 @@ void* NetworkWorker (void* _args)
             close(events[i].data.fd);
             continue;
          }
-         
          if(events[i].data.fd == args->socket)
          {
             while (true)
             {
                incoming_fd = AsyncSocketAccept(events[i].data.fd, FD_ACCEPT, 0, args->connection_type);
-               if (incoming_fd != SOCKET_ERROR && incoming_fd != 0)
+               if (incoming_fd != SOCKET_ERROR)
                {
                    if (MakeNonBlockingSocket(incoming_fd) == -1)
                    {
                        eprintf("error in network worker thread! (make nonblock socket)");
                    }
-                   
+
+                   // Add NEW session socket to this worker's epoll
                    evt.data.fd = incoming_fd;
                    evt.events = EPOLLIN | EPOLLET; 
-                   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt);
+                   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt) == -1)
+                   {
+                       eprintf("NetworkWorker: epoll_ctl ADD failed for fd %d, error %d", incoming_fd, errno);
+                   }
+                   else
+                   {
+                       dprintf("NetworkWorker: successfully added fd %d to epoll %d", incoming_fd, epoll_fd);
+                   }
                }
                else
                {
