@@ -23,7 +23,7 @@ char *maintenance_buffer = NULL;
 int MakeNonBlockingSocket(int s);
 void* NetworkWorker (void* arg);
 void* UDPWorker (void* arg);
-void ProcessSessionBuffer(session_node *s);
+void PollSession(int session_id);
 Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
 
 typedef struct {
@@ -107,7 +107,7 @@ void* NetworkWorker (void* _args)
    struct epoll_event* events;
 
    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-   evt.events = EPOLLIN | EPOLLET; // Edge-triggered (as originally used)
+   evt.events = EPOLLIN | EPOLLET;
    evt.data.fd = args->socket;
 
    events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
@@ -165,11 +165,13 @@ void* NetworkWorker (void* _args)
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
             
-            // SURGICAL FIX: Only dispatch for maintenance port.
-            // Regular game sessions are polled by the main loop (PollSessions).
+            // SURGICAL FIX: Force a poll specifically for maintenance sessions.
+            // Game sessions are left to the main timer loop to avoid desyncs.
             if (args->connection_type == SOCKET_MAINTENANCE_PORT) {
                session_node *s = GetSessionBySocket(events[i].data.fd);
-               if (s != NULL) ProcessSessionBuffer(s);
+               if (s != NULL) {
+                  PollSession(s->session_id);
+               }
             }
             
             LeaveSessionLock();
@@ -260,15 +262,6 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
     {
         if (!CheckMaintenanceMask(&peer_info,peer_len))
         {
-            closesocket(new_sock);
-            return 0;
-        }
-    }
-    else
-    {
-        if (!CheckBlockList(&peer_addr))
-        {
-            lprintf("Blocked connection from %s.\n", conn.name);
             closesocket(new_sock);
             return 0;
         }
