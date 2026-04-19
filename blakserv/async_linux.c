@@ -35,6 +35,7 @@ typedef struct {
 } nWrkArgs;
 
 Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
+void ProcessSessionBuffer(session_node *s);
 
 void InitAsyncConnections(void)
 {
@@ -151,6 +152,7 @@ void* NetworkWorker (void* _args)
    int num_fds;
    struct epoll_event evt;
    struct epoll_event* events;
+   session_node *s;
 
    // Select the correct global epoll FD for this worker
    if (args->connection_type == SOCKET_PORT) {
