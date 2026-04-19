@@ -296,7 +296,7 @@ const char * AddConfig(int config_id,const char *config_data,int config_type,int
     case CONFIG_PATH :
         len = strlen(s);
 
-        if (s[len-1] == '/')
+        if (len > 0 && (s[len-1] == '/' || s[len-1] == '\\'))
             s[len-1] = 0;
 
         if (stat(s,&file_stat) != 0 || !(file_stat.st_mode & S_IFDIR))
