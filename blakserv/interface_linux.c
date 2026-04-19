@@ -41,21 +41,27 @@ void* InterfaceMainLoop(void* arg)
    size_t size;
    //char buf[200];
 
-   while (strcmp(line,"quit") != 0)
+   while (true)
    {
       printf("blakadm> ");
-      if (getline(&line, &size, stdin) != -1)
+      if (getline(&line, &size, stdin) == -1)
       {
+         break;
+      }
       
+      // Remove trailing newline
+      line[strcspn(line, "\n")] = 0;
+
+      if (strcmp(line, "quit") == 0)
+      {
+         break;
+      }
+
+      if (strlen(line) > 0)
+      {
          EnterServerLock();
-
-         // TODO: in windows this uses a set char array of size 200, no bounds checking
-         // is being done here yet
-         //TryAdminCommand(console_session_id,buf);
-         TryAdminCommand(console_session_id,line);
-
+         TryAdminCommand(console_session_id, line);
          LeaveServerLock();
-
       }
    }
 
