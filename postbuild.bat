@@ -8,7 +8,7 @@ echo Post-Build started.
 set foundcli=0
 
 rem Step 1: Try 64-bit Program Files
-set m59path=%ProgramW6432%\Open Meridian\Meridian 105
+set m59path=%ProgramW6432%\Open Meridian\Meridian 900
 
 rem Step 1a: check for autobuild ovveride
 if EXIST clientres (
@@ -21,7 +21,7 @@ if EXIST !m59path! (
 )
 
 rem Step 2: try 32-bit Program Files(x86)
-set m59path=%ProgramFiles(x86)%\Open Meridian\Meridian 105
+set m59path=%ProgramFiles(x86)%\Open Meridian\Meridian 900
 
 if EXIST !m59path! (
    call :copying
@@ -29,7 +29,7 @@ if EXIST !m59path! (
 )
 
 rem Step 3: try AppData\Local
-set m59path=%LocalAppData%\Open Meridian\Meridian 105
+set m59path=%LocalAppData%\Open Meridian\Meridian 900
 
 if EXIST !m59path! (
    call :copying
