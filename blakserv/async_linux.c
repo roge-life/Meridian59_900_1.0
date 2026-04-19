@@ -16,10 +16,6 @@ pthread_t network_thread;
 pthread_t maintenance_thread;
 pthread_t udp_thread;
 
-// Global epoll FDs so StartAsyncSession can register new sockets
-int game_epoll_fd = -1;
-int maintenance_epoll_fd = -1;
-
 #define MAX_MAINTENANCE_MASKS 15
 char *maintenance_masks[MAX_MAINTENANCE_MASKS];
 int num_maintenance_masks = 0;
@@ -28,14 +24,13 @@ char *maintenance_buffer = NULL;
 int MakeNonBlockingSocket(int s);
 void* NetworkWorker (void* arg);
 void* UDPWorker (void* arg);
+void ProcessSessionBuffer(session_node *s);
+Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
 
 typedef struct {
    int socket;
    int connection_type;
 } nWrkArgs;
-
-Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
-void ProcessSessionBuffer(session_node *s);
 
 void InitAsyncConnections(void)
 {
@@ -51,16 +46,10 @@ void InitAsyncConnections(void)
             break;
         maintenance_masks[num_maintenance_masks] = strtok(NULL,";");
     }
-
-    // Initialize global epoll descriptors
-    game_epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    maintenance_epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
 }
 
 void ExitAsyncConnections(void)
 {
-    if (game_epoll_fd != -1) close(game_epoll_fd);
-    if (maintenance_epoll_fd != -1) close(maintenance_epoll_fd);
 }
 
 void StartAsyncSocketAccept(SOCKET sock,int connection_type)
@@ -91,10 +80,6 @@ void StartAsyncSocketAccept(SOCKET sock,int connection_type)
       eprintf("Unable to start network worker thread! %s",strerror(err));
       free(args);
    }
-   else
-   {
-      dprintf("network worker thread started for connection type %d on fd %d",connection_type,sock);
-   }
 }
 
 void StartAsyncSocketUDPRead(SOCKET sock)
@@ -109,42 +94,17 @@ void StartAsyncSocketUDPRead(SOCKET sock)
         eprintf("Unable to start UDP worker thread! %s", strerror(err));
         free(psock);
     }
-    else
-    {
-        dprintf("UDP worker thread started on fd %d", sock);
-    }
 }
 
 HANDLE StartAsyncNameLookup(char *peer_addr,char *buf)
 {
-   // TODO: stub
    return 0;
 }
 
 void StartAsyncSession(session_node *s)
 {
-    struct epoll_event evt;
-    int target_epoll = -1;
-
-    if (s->state == STATE_SYNCHED) {
-        target_epoll = game_epoll_fd;
-    } else if (s->state == STATE_MAINTENANCE || s->state == STATE_ADMIN) {
-        target_epoll = maintenance_epoll_fd;
-    }
-
-    if (target_epoll != -1) {
-        if (MakeNonBlockingSocket(s->conn.socket) == -1) {
-            eprintf("StartAsyncSession: error making socket non-blocking for fd %d", s->conn.socket);
-        }
-        evt.data.fd = s->conn.socket;
-        evt.events = EPOLLIN; // Level-triggered
-        if (epoll_ctl(target_epoll, EPOLL_CTL_ADD, s->conn.socket, &evt) == -1) {
-            // Might already be added by worker, ignore EEXIST
-            if (errno != EEXIST) {
-                eprintf("StartAsyncSession: epoll_ctl ADD failed for fd %d, error %d", s->conn.socket, errno);
-            }
-        }
-    }
+    // For Linux, we add the session socket to the epoll set in the worker thread loop
+    // to avoid race conditions with multiple worker threads.
 }
 
 void* NetworkWorker (void* _args)
@@ -155,42 +115,24 @@ void* NetworkWorker (void* _args)
    int num_fds;
    struct epoll_event evt;
    struct epoll_event* events;
-   session_node *s;
 
-   // Use the global epoll FD initialized in InitAsyncConnections
-   if (args->connection_type == SOCKET_PORT) {
-       epoll_fd = game_epoll_fd;
-   } else {
-       epoll_fd = maintenance_epoll_fd;
-   }
-
-   if (epoll_fd == -1) {
-       eprintf("NetworkWorker: global epoll FD not initialized!");
-       free(args);
-       return NULL;
-   }
-
-   evt.events = EPOLLIN; // Level-triggered
+   epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
+   evt.events = EPOLLIN | EPOLLET; // Edge-triggered for the listen socket
    evt.data.fd = args->socket;
 
-   events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
+   events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
 
    if (MakeNonBlockingSocket(args->socket) == -1)
    {
       eprintf("error in network worker thread! (make nonblock socket)");   
    } 
 
-   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt) == -1) {
-       // Might already be added, ignore EEXIST
-       if (errno != EEXIST) {
-           eprintf("NetworkWorker: epoll_ctl ADD failed for listen socket %d, error %d", args->socket, errno);
-       }
-   }
+   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt);
 
    while (true)
    {
       num_fds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
-...
+
       if (num_fds < 0)
       {
          if (errno == EINTR) continue;
@@ -200,11 +142,9 @@ void* NetworkWorker (void* _args)
 
       for(int i = 0; i < num_fds; i++)
       {
-         if ((events[i].events & EPOLLERR) ||
-              (events[i].events & EPOLLHUP))
+         if ((events[i].events & EPOLLERR) || (events[i].events & EPOLLHUP))
          {
-            eprintf ("error in network worker thread! (socket error)");
-            close (events[i].data.fd);
+            close(events[i].data.fd);
             continue;
          }
          
@@ -219,12 +159,11 @@ void* NetworkWorker (void* _args)
                    {
                        eprintf("error in network worker thread! (make nonblock socket)");
                    }
+                   
+                   // Add NEW session socket to this worker's epoll
                    evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN; // Use level-triggered for stability
-                   if (epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt) == -1)
-                   {
-                       eprintf("error in network worker thread! (epoll_ctl ADD failed for %d)", incoming_fd);
-                   }
+                   evt.events = EPOLLIN | EPOLLET; 
+                   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt);
                }
                else
                {
@@ -237,8 +176,8 @@ void* NetworkWorker (void* _args)
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
             
-            // Dispatch the buffer to the state-specific handler
-            s = GetSessionBySocket(events[i].data.fd);
+            // CRITICAL FIX: Dispatch the buffer to M59 handlers
+            session_node *s = GetSessionBySocket(events[i].data.fd);
             if (s != NULL)
             {
                ProcessSessionBuffer(s);
@@ -265,10 +204,10 @@ void* UDPWorker(void* arg)
     struct epoll_event* events;
 
     epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    evt.events = EPOLLIN; // Level-triggered
+    evt.events = EPOLLIN | EPOLLET;
     evt.data.fd = sock;
 
-    events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
+    events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
 
     if (MakeNonBlockingSocket(sock) == -1)
     {
@@ -291,7 +230,6 @@ void* UDPWorker(void* arg)
         {
             if (events[i].data.fd == sock)
             {
-                // For UDP, we keep reading while data is available because of EPOLLET
                 EnterSessionLock();
                 AsyncSocketReadUDP(sock);
                 LeaveSessionLock();
@@ -366,14 +304,12 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
     s = CreateSession(conn);
     if (s != NULL)
     {
-        // Set state BEFORE starting async session so StartAsyncSession knows which epoll to use
+        // Set state BEFORE returning so worker thread knows how to handle it
         switch (connection_type)
         {
         case SOCKET_PORT : InitSessionState(s,STATE_SYNCHED); break;
         case SOCKET_MAINTENANCE_PORT : InitSessionState(s,STATE_MAINTENANCE); break;
         }
-        
-        StartAsyncSession(s);
         s->conn.hLookup = 0;
     }
     LeaveServerLock();
