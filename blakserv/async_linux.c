@@ -205,6 +205,14 @@ void* NetworkWorker (void* _args)
          {
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
+            
+            // Dispatch the buffer to the state-specific handler
+            s = GetSessionBySocket(events[i].data.fd);
+            if (s != NULL)
+            {
+               ProcessSessionBuffer(s);
+            }
+            
             LeaveSessionLock();
          }
       }
