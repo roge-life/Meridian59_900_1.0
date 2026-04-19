@@ -343,7 +343,7 @@ Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr)
 
         for (int k = 0; k < 16; k++)
         {
-            if (mask.__in6_u.__u6_addr8[k] != 0 && mask.__in6_u.__u6_addr8[k] != addr->sin6_addr.s6_addr[k])
+            if (mask.u.Byte[k] != 0 && mask.u.Byte[k] != addr->sin6_addr.s6_addr[k])
             {
                 // mismatch
                 skip = 1;
