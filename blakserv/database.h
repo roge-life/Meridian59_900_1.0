@@ -50,7 +50,30 @@ typedef struct sql_record_player sql_record_player;
 typedef struct sql_record_playersuicide sql_record_playersuicide;
 typedef struct sql_record_guild sql_record_guild;
 typedef struct sql_record_guilddisband sql_record_guilddisband;
+
+enum sql_recordtype
+{
+	STAT_TOTALMONEY		= 1,
+	STAT_MONEYCREATED	= 2,
+	STAT_PLAYERLOGIN	= 3,
+	STAT_ASSESS_DAM		= 4,
+   STAT_PLAYERDEATH = 5,
+   STAT_PLAYER = 6,
+   STAT_PLAYERSUICIDE = 7,
+   STAT_GUILD = 8,
+   STAT_GUILDDISBAND = 9
+};
 typedef enum sql_recordtype sql_recordtype;
+
+enum sql_worker_state
+{
+	STOPPED			= 0,
+	STOPPING		= 1,
+	STARTING		= 2,
+	INITIALIZED		= 3,
+	CONNECTED		= 4,
+	SCHEMAVERIFIED	= 5
+};
 typedef enum sql_worker_state sql_worker_state;
 
 struct sql_queue_node
@@ -140,28 +163,6 @@ struct sql_record_guilddisband
    char* name;
 };
 
-enum sql_recordtype
-{
-	STAT_TOTALMONEY		= 1,
-	STAT_MONEYCREATED	= 2,
-	STAT_PLAYERLOGIN	= 3,
-	STAT_ASSESS_DAM		= 4,
-   STAT_PLAYERDEATH = 5,
-   STAT_PLAYER = 6,
-   STAT_PLAYERSUICIDE = 7,
-   STAT_GUILD = 8,
-   STAT_GUILDDISBAND = 9
-};
-
-enum sql_worker_state
-{
-	STOPPED			= 0,
-	STOPPING		= 1,
-	STARTING		= 2,
-	INITIALIZED		= 3,
-	CONNECTED		= 4,
-	SCHEMAVERIFIED	= 5
-};
 #pragma endregion
 
 void MySQLInit(char* Host, char* User, char* Password, char* DB);
@@ -178,7 +179,11 @@ BOOL MySQLRecordPlayerSuicide(int account_id, char* name);
 BOOL MySQLRecordGuild(char* name, char* leader, char* hall);
 BOOL MySQLRecordGuildDisband(char* name);
 
+#ifdef BLAK_PLATFORM_WINDOWS
 void __cdecl _MySQLWorker(void* Parameters);
+#else
+void* _MySQLWorker(void* Parameters);
+#endif
 void _MySQLVerifySchema();
 BOOL _MySQLEnqueue(sql_queue_node* Node);
 BOOL _MySQLDequeue(BOOL processNode);

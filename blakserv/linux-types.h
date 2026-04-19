@@ -20,6 +20,16 @@
 #define strnicmp strncasecmp
 #define _strdup strdup
 #define Sleep(ms) usleep((ms) * 1000)
+#define WSAGetLastError() GetLastError()
+#define ZeroMemory(p, sz) memset((p), 0, (sz))
+#define memcpy_s(dest, destsz, src, count) memcpy((dest), (src), (count))
+
+#define PostThreadMessage(id, msg, w, l) (0)
+#define INVALID_SESSION -1
+
+#define __forceinline inline
+#define __cdecl
+#define _MM_ALIGN16
 
 #define WM_APP      0x8000
 #define WM_QUIT     0x0012

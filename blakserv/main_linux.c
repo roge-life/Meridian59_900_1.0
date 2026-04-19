@@ -136,6 +136,7 @@ int MainServer(int argc, char** argv)
    ServiceTimers(); /* returns if server termiated */
 
    MainExitServer();
+   return 0;
 }
 
 void Daemonize()

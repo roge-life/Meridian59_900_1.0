@@ -19,7 +19,7 @@ BLAKSERVRUNDIR = $(TOPDIR)/run/server
 # -m32 compile as 32-bit
 # -Wno-write-strings: turns off deprecated warning for const char*
 #   strings passed as char* (Should be properly fixed)
-CFLAGS = -m32 -I $(BLAKINCLUDEDIR) -I $(BLAKINCLUDEDIR)/mysql -g -x c++ -DBLAK_PLATFORM_LINUX -Wno-write-strings
+CFLAGS = -m32 -msse2 -I $(BLAKINCLUDEDIR) -I $(BLAKINCLUDEDIR)/mysql -g -x c++ -DBLAK_PLATFORM_LINUX -Wno-write-strings
 
 
 BLAKSERVLINKFLAGS = -m32 -lpthread -lrt -lmariadb
