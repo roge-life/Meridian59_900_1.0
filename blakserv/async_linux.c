@@ -22,9 +22,14 @@ char *maintenance_buffer = NULL;
 
 int MakeNonBlockingSocket(int s);
 void* NetworkWorker (void* arg);
+void* UDPWorker (void* arg);
 void ProcessSessionBuffer(session_node *s);
-
 Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr);
+
+typedef struct {
+   int socket;
+   int connection_type;
+} nWrkArgs;
 
 void InitAsyncConnections(void)
 {
@@ -66,12 +71,25 @@ void StartAsyncSocketAccept(SOCKET sock,int connection_type)
    {
       eprintf("Unable to start network worker thread! (Unknown port type)");
       free(args);
+      return;
    }
 
    if (err != 0)
    {
       eprintf("Unable to start network worker thread! %s",strerror(err));
    }
+}
+
+void StartAsyncSocketUDPRead(SOCKET sock)
+{
+    pthread_t udp_thread;
+    int* psock = (int*)malloc(sizeof(int));
+    *psock = sock;
+
+    if (pthread_create(&udp_thread, NULL, &UDPWorker, psock) != 0)
+    {
+        free(psock);
+    }
 }
 
 HANDLE StartAsyncNameLookup(char *peer_addr,char *buf)
@@ -86,16 +104,13 @@ void StartAsyncSession(session_node *s)
 void* NetworkWorker (void* _args)
 {
    nWrkArgs* args = (nWrkArgs*) _args;
-
    int epoll_fd;
    int incoming_fd;
    int num_fds;
-
    struct epoll_event evt;
    struct epoll_event* events;
 
    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-
    evt.events = EPOLLIN | EPOLLET;
    evt.data.fd = args->socket;
 
@@ -126,7 +141,8 @@ void* NetworkWorker (void* _args)
             close(events[i].data.fd);
             continue;
          }
-         else if(events[i].data.fd == args->socket)
+         
+         if(events[i].data.fd == args->socket)
          {
             while (true)
             {
@@ -137,9 +153,9 @@ void* NetworkWorker (void* _args)
                    {
                        eprintf("error in network worker thread! (make nonblock socket)");
                    }
-
+                   
                    evt.data.fd = incoming_fd;
-                   evt.events = EPOLLIN | EPOLLET;
+                   evt.events = EPOLLIN | EPOLLET; 
                    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, incoming_fd, &evt);
                }
                else
@@ -153,14 +169,10 @@ void* NetworkWorker (void* _args)
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
             
-            // DISPATCH FIX: Only for maintenance port to stay safe for now
-            if (args->connection_type == SOCKET_MAINTENANCE_PORT)
-            {
+            // Dispatch logic specifically for maintenance
+            if (args->connection_type == SOCKET_MAINTENANCE_PORT) {
                session_node *s = GetSessionBySocket(events[i].data.fd);
-               if (s != NULL)
-               {
-                  ProcessSessionBuffer(s);
-               }
+               if (s != NULL) ProcessSessionBuffer(s);
             }
             
             LeaveSessionLock();
@@ -173,13 +185,52 @@ void* NetworkWorker (void* _args)
    return NULL;
 }
 
-// REST OF FILE STUBBED FOR UDP TO PREVENT LINKER ERROR
-void* UDPWorker(void* arg) { free(arg); return NULL; }
-void StartAsyncSocketUDPRead(SOCKET sock) {
-    pthread_t udp_thread;
-    int* psock = (int*)malloc(sizeof(int));
-    *psock = sock;
-    pthread_create(&udp_thread, NULL, &UDPWorker, psock);
+void* UDPWorker(void* arg)
+{
+    int sock = *(int*)arg;
+    free(arg);
+
+    int epoll_fd;
+    int num_fds;
+    struct epoll_event evt;
+    struct epoll_event* events;
+
+    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
+    evt.events = EPOLLIN | EPOLLET;
+    evt.data.fd = sock;
+
+    events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
+
+    if (MakeNonBlockingSocket(sock) == -1)
+    {
+        eprintf("error in UDP worker thread! (make nonblock socket)");
+    }
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock, &evt);
+
+    while (true)
+    {
+        num_fds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
+        if (num_fds < 0)
+        {
+            if (errno == EINTR) continue;
+            eprintf("error in UDP worker thread! (epoll_wait)!");
+            break;
+        }
+
+        for (int i = 0; i < num_fds; i++)
+        {
+            if (events[i].data.fd == sock)
+            {
+                EnterSessionLock();
+                AsyncSocketReadUDP(sock);
+                LeaveSessionLock();
+            }
+        }
+    }
+
+    free(events);
+    return NULL;
 }
 
 int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
