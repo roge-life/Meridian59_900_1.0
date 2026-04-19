@@ -13,6 +13,7 @@
 
 pthread_t network_thread;
 pthread_t maintenance_thread;
+pthread_t udp_thread;
 
 #define MAX_MAINTENANCE_MASKS 15
 char *maintenance_masks[MAX_MAINTENANCE_MASKS];
@@ -21,6 +22,7 @@ char *maintenance_buffer = NULL;
 
 int MakeNonBlockingSocket(int s);
 void* NetworkWorker (void* arg);
+void* UDPWorker (void* arg);
 
 typedef struct {
    int socket;
@@ -44,16 +46,6 @@ void InitAsyncConnections(void)
             break;
         maintenance_masks[num_maintenance_masks] = strtok(NULL,";");
     }
-
-    /*
-    {
-        int i;
-        for (i=0;i<num_maintenance_masks;i++)
-        {
-            dprintf("mask %i is [%s]\n",i,maintenance_masks[i]);
-        }
-    }
-    */
 }
 
 void ExitAsyncConnections(void)
@@ -63,15 +55,11 @@ void ExitAsyncConnections(void)
 
 void StartAsyncSocketAccept(SOCKET sock,int connection_type)
 {
-   
    int err;
-
    nWrkArgs* args = (nWrkArgs*) malloc(sizeof(nWrkArgs));
 
    args->socket = sock;
    args->connection_type = connection_type;
-
-//   err = pthread_create(&network_thread, NULL, &NetworkWorker, &args);
 
    if (connection_type == SOCKET_PORT)
    {
@@ -84,17 +72,37 @@ void StartAsyncSocketAccept(SOCKET sock,int connection_type)
    else
    {
       eprintf("Unable to start network worker thread! (Unknown port type)");
+      free(args);
+      return;
    }
 
    if (err != 0)
    {
       eprintf("Unable to start network worker thread! %s",strerror(err));
+      free(args);
    }
    else
    {
       dprintf("network worker thread started for connection type %d on fd %d",connection_type,sock);
    }
-   
+}
+
+void StartAsyncSocketUDPRead(SOCKET sock)
+{
+    int err;
+    int* psock = (int*)malloc(sizeof(int));
+    *psock = sock;
+
+    err = pthread_create(&udp_thread, NULL, &UDPWorker, psock);
+    if (err != 0)
+    {
+        eprintf("Unable to start UDP worker thread! %s", strerror(err));
+        free(psock);
+    }
+    else
+    {
+        dprintf("UDP worker thread started on fd %d", sock);
+    }
 }
 
 HANDLE StartAsyncNameLookup(char *peer_addr,char *buf)
@@ -114,87 +122,67 @@ void* NetworkWorker (void* _args)
 
    int epoll_fd;
    int incoming_fd;
-
    int num_fds;
-   int ret_val;
-
    struct epoll_event evt;
    struct epoll_event* events;
 
    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-
    evt.events = EPOLLIN | EPOLLET;
    evt.data.fd = args->socket;
 
-   events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof evt);
+   events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
 
    if (MakeNonBlockingSocket(args->socket) == -1)
    {
       eprintf("error in network worker thread! (make nonblock socket)");   
    } 
 
-   // TODO: Nothing is done with ret_val
-   ret_val = epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt);
+   epoll_ctl(epoll_fd, EPOLL_CTL_ADD, args->socket, &evt);
 
-   // main loop for the network worker thread
    while (true)
    {
       num_fds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
 
       if (num_fds < 0)
       {
+         if (errno == EINTR) continue;
          eprintf("error in network worker thread! (epoll_wait)!");
+         break;
       }
 
       for(int i = 0; i < num_fds; i++)
       {
          if ((events[i].events & EPOLLERR) ||
-              (events[i].events & EPOLLHUP) ||
-              (!(events[i].events & EPOLLIN)))
+              (events[i].events & EPOLLHUP))
          {
-            // error on socket
             eprintf ("error in network worker thread! (socket error)");
             close (events[i].data.fd);
-
             continue;
          }
-         else if(events[i].data.fd == args->socket)
+         
+         if(events[i].data.fd == args->socket)
          {
-            // incoming connection(s)
-            // keep accepting until we get EAGAIN or EWOULDBLOCK or until
-            // some other socket error occurs
             while (true)
             {
                incoming_fd = AsyncSocketAccept(events[i].data.fd, FD_ACCEPT, 0, args->connection_type);
-               if (incoming_fd != SOCKET_ERROR)
+               if (incoming_fd != SOCKET_ERROR && incoming_fd != 0)
                {
                    if (MakeNonBlockingSocket(incoming_fd) == -1)
                    {
                        eprintf("error in network worker thread! (make nonblock socket)");
                    }
-                   else
-                   {
-                       dprintf("accepted async socket on fd %d",incoming_fd);
-                   }
-
-                   // add this socket to the group of sockets to monitor
                    evt.data.fd = incoming_fd;
                    evt.events = EPOLLIN | EPOLLET;
-
-                   // TODO: Nothing is done with ret_val
-                   ret_val = epoll_ctl(epoll_fd,EPOLL_CTL_ADD,incoming_fd,&evt);
+                   epoll_ctl(epoll_fd,EPOLL_CTL_ADD,incoming_fd,&evt);
                }
                else
                {
-                  // either all connections have been accepted or an error
-                  // occured (which would have been logged already)
                   break;
                }
             }
          }
          else
          {
-            // ready to read
             EnterSessionLock();
             AsyncSocketRead(events[i].data.fd);
             LeaveSessionLock();
@@ -202,64 +190,96 @@ void* NetworkWorker (void* _args)
       }
    }
 
+   free(events);
    free(args);
+   return NULL;
+}
+
+void* UDPWorker(void* arg)
+{
+    int sock = *(int*)arg;
+    free(arg);
+
+    int epoll_fd;
+    int num_fds;
+    struct epoll_event evt;
+    struct epoll_event* events;
+
+    epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
+    evt.events = EPOLLIN | EPOLLET;
+    evt.data.fd = sock;
+
+    events = (epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));
+
+    if (MakeNonBlockingSocket(sock) == -1)
+    {
+        eprintf("error in UDP worker thread! (make nonblock socket)");
+    }
+
+    epoll_ctl(epoll_fd, EPOLL_CTL_ADD, sock, &evt);
+
+    while (true)
+    {
+        num_fds = epoll_wait(epoll_fd, events, MAX_EPOLL_EVENTS, -1);
+        if (num_fds < 0)
+        {
+            if (errno == EINTR) continue;
+            eprintf("error in UDP worker thread! (epoll_wait)!");
+            break;
+        }
+
+        for (int i = 0; i < num_fds; i++)
+        {
+            if (events[i].data.fd == sock)
+            {
+                // For UDP, we keep reading while data is available because of EPOLLET
+                EnterSessionLock();
+                AsyncSocketReadUDP(sock);
+                LeaveSessionLock();
+            }
+        }
+    }
+
+    free(events);
+    return NULL;
 }
 
 int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
 {
     SOCKET new_sock;
-    SOCKADDR_IN6 acc_sin;    /* Accept socket address - internet style */
-    socklen_t acc_sin_len;        /* Accept socket address length */
+    SOCKADDR_IN6 acc_sin;
+    socklen_t acc_sin_len;
     SOCKADDR_IN6 peer_info;
     socklen_t peer_len;
     struct in6_addr peer_addr;
     connection_node conn;
     session_node *s;
 
-    if (event != FD_ACCEPT)
-    {
-        eprintf("AsyncSocketAccept got non-accept %i\n",event);
-        return 0;
-    }
-
-    if (error != 0)
-    {
-        eprintf("AsyncSocketAccept got error %i\n",error);
-        return 0;
-    }
+    if (event != FD_ACCEPT) return 0;
+    if (error != 0) return 0;
 
     acc_sin_len = sizeof acc_sin;
-
     new_sock = accept(sock,(struct sockaddr *) &acc_sin,&acc_sin_len);
 
     if (new_sock == SOCKET_ERROR)
     {
-        // don't report EAGAIN or EWOULDBLOCK, we will get those regularly
-        // as we process potential multiple simultaneous connections
         if (errno != EAGAIN && errno != EWOULDBLOCK)
         {
-            eprintf("AcceptSocketConnections accept failed, error %i\n",
-                GetLastError());
+            eprintf("AcceptSocketConnections accept failed, error %i\n", GetLastError());
         }
         return SOCKET_ERROR;
     }
 
     peer_len = sizeof peer_info;
-
     if (getpeername(new_sock,(SOCKADDR *)&peer_info,&peer_len) < 0)
     {
-        eprintf("AcceptSocketConnections getpeername failed error %i\n",
-            GetLastError());
+        eprintf("AcceptSocketConnections getpeername failed error %i\n", GetLastError());
         return 0;
     }
 
     memcpy(&peer_addr, &peer_info.sin6_addr, sizeof(struct in6_addr));
     memcpy(&conn.addr, &peer_addr, sizeof(struct in6_addr));
     inet_ntop(AF_INET6, &peer_addr, conn.name, sizeof(conn.name));
-
-    // Took out following line to prevent log files from becoming spammed with extra lines.
-    // This line is extraneous because the outcome of the authentication is always posted to logs.
-    // lprintf("Got connection from %s to be authenticated.\n", conn.name);
 
     if (connection_type == SOCKET_MAINTENANCE_PORT)
     {
@@ -284,47 +304,25 @@ int AsyncSocketAccept(SOCKET sock,int event,int error,int connection_type)
     conn.socket = new_sock;
 
     EnterServerLock();
-
     s = CreateSession(conn);
     if (s != NULL)
     {
         StartAsyncSession(s);
-
         switch (connection_type)
         {
-        case SOCKET_PORT :
-            InitSessionState(s,STATE_SYNCHED);
-            break;
-        case SOCKET_MAINTENANCE_PORT :
-            InitSessionState(s,STATE_MAINTENANCE);
-            break;
-        default :
-            eprintf("AcceptSocketConnections got invalid connection type %i\n",connection_type);
+        case SOCKET_PORT : InitSessionState(s,STATE_SYNCHED); break;
+        case SOCKET_MAINTENANCE_PORT : InitSessionState(s,STATE_MAINTENANCE); break;
         }
-
-        /* need to do this AFTER s->conn is set in place, because the async
-        call writes to that mem address */
-
-        if (ConfigBool(SOCKET_DNS_LOOKUP))
-        {
-            // disabled due to IPv6 right now
-            //s->conn.hLookup = StartAsyncNameLookup((char *)&peer_addr,s->conn.peer_data);
-        }
-        else
-        {
-            s->conn.hLookup = 0;
-        }
+        s->conn.hLookup = 0;
     }
-
     LeaveServerLock();
 
-    // return the new socket to the network worker so it can watch it for incoming data
     return new_sock;
 }
 
 Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr)
 {
-    IN6_ADDR mask;
+    struct in6_addr mask;
     int i;
     BOOL skip;
 
@@ -332,29 +330,21 @@ Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr)
     {
         if (inet_pton(AF_INET6, maintenance_masks[i], &mask) != 1)
         {
-            eprintf("CheckMaintenanceMask has invalid configured mask %s\n",
-                      maintenance_masks[i]);
+            eprintf("CheckMaintenanceMask has invalid configured mask %s\n", maintenance_masks[i]);
             continue;
         }
 
-        /* for each byte of the mask, if it's non-zero, the client must match it */
-
         skip = 0;
-
-        for (int k = 0; k < sizeof(mask.s6_addr); k++)
+        for (int k = 0; k < 16; k++)
         {
             if (mask.s6_addr[k] != 0 && mask.s6_addr[k] != addr->sin6_addr.s6_addr[k])
             {
-                // mismatch
                 skip = 1;
                 break;
             }
         }
 
-        if (skip)
-            continue;
-
-        return True;
+        if (!skip) return True;
     }
     return False;
 }
@@ -362,19 +352,8 @@ Bool CheckMaintenanceMask(SOCKADDR_IN6 *addr,int len_addr)
 int MakeNonBlockingSocket(int s)
 {
    int flags;
-   int ret_val;
-
-   // dont clobber stdin, stdout or stderr
-   if (s < 3)
-   {
-      eprintf("refusing to clobber fd %d",s);
-      printf("refusing to clobber fd %d\n",s);
-      return -1;
-   }
-
+   if (s < 3) return -1;
    flags = fcntl(s, F_GETFL, 0);
    flags |= O_NONBLOCK;
-   ret_val = fcntl(s, F_SETFL, flags);
-
-   return ret_val;
+   return fcntl(s, F_SETFL, flags);
 }
