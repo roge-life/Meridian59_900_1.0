@@ -20,3 +20,14 @@ variable "ssh_key_name" {
   description = "The name of the SSH key on DigitalOcean to grant root access"
   type        = string
 }
+
+variable "spaces_access_id" {
+  description = "DigitalOcean Spaces Access ID"
+  type        = string
+}
+
+variable "spaces_secret_key" {
+  description = "DigitalOcean Spaces Secret Key"
+  type        = string
+  sensitive   = true
+}
