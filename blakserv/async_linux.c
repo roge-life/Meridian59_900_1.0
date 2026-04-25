@@ -195,7 +195,7 @@ void* UDPWorker(void* arg)
     struct epoll_event* events;
 
     epoll_fd = epoll_create(EPOLL_QUEUE_LEN);
-    evt.events = EPOLLIN | EPOLLET;
+    evt.events = EPOLLIN;  // level-triggered: re-fires until socket is drained
     evt.data.fd = sock;
 
     events = (struct epoll_event*) calloc(MAX_EPOLL_EVENTS, sizeof(struct epoll_event));

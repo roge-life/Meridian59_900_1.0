@@ -487,19 +487,23 @@ void AsyncSocketReadUDP(SOCKET sock)
       return;
    }
 
-   // create first udp datagram buffer if none yet
+   // allocate a fresh buffer for this datagram (1 datagram per buffer_node)
+   buffer_node* newbn = GetBuffer();
+   newbn->len_buf = bytesReceivd;
+   memcpy(newbn->prebuf, udpbuf, bytesReceivd);
+
+   // append to tail of receive list (never overwrite an existing pending node)
    if (session->receive_list_udp == NULL)
-      session->receive_list_udp = GetBuffer();
-
-   // find the last buffer in the udp receive list
-   buffer_node* bn = session->receive_list_udp;
-   while (bn->next != NULL)
-      bn = bn->next;
-
-   // copy udp datagram into udp buffer list of session
-   // note: this is simply 1 UDP datagram per buffer !
-   bn->len_buf = bytesReceivd;
-   memcpy(bn->prebuf, udpbuf, bytesReceivd);
+   {
+      session->receive_list_udp = newbn;
+   }
+   else
+   {
+      buffer_node* bn = session->receive_list_udp;
+      while (bn->next != NULL)
+         bn = bn->next;
+      bn->next = newbn;
+   }
 
    // unlock
    if (!MutexRelease(session->muxReceive))

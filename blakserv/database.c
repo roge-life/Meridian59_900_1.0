@@ -553,7 +553,7 @@ BOOL MySQLRecordPlayerDeath(char* victim, char* killer, char* room, char* attack
    sql_record_playerdeath*			record;
    sql_queue_node*					node;
 
-   if (state == 0 || !victim || !killer || !room || !attack || !ispvp)
+   if (state == 0 || !victim || !killer || !room || !attack)
       return FALSE;
 
    // allocate

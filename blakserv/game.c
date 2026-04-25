@@ -612,10 +612,8 @@ void GameStartUser(session_node *s,user_node *u)
    name_val.int_val = SendTopLevelBlakodMessage(s->game->object_id,USER_NAME_MSG,0,NULL);
    r = GetResourceByID(name_val.v.data);
 
-#ifdef BLAK_PLATFORM_WINDOWS
    if (r && r->resource_val[0])
      MySQLRecordPlayerLogin(s->account->name,r->resource_val[0],s->conn.name);
-#endif
 
    SetSessionTimer(s, SESSION_POLL_TIME);
 }
