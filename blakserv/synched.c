@@ -360,24 +360,20 @@ void SynchedAcceptLogin(session_node *s,char *name,char *password)
    /* bad username, bad password, or suspended? */
    if (a == NULL)
    {
-   //lprintf("0.Account password %s attempting create\n",passwordhex);
+#ifdef BLAK_ALLOW_AUTO_ACCOUNT_CREATE
    aprintf("1.Attempting new character creation.\n");
    /* create account and num_slots users for it */
    int num_slots = 5;
    int account_id = NULL;
    user_node *u;
-   //char *name,*password,*email;
    char *email;
-   //name = (char *)parms[0];
-   //password = (char *)parms[1];
    email = name;
    lprintf("0.Account password attempting create\n");
    account_id=CreateAccountSecurePassword(name,password,email,ACCOUNT_NORMAL);
-   
+
    if ( account_id == NULL )
    {
       aprintf("Account name %s already exists\n",name);
-
       return;
    }
 
@@ -394,6 +390,11 @@ void SynchedAcceptLogin(session_node *s,char *name,char *password)
    aprintf("Created account %i.\n", account_id);
    a = GetAccountByID(account_id);
    SetAccountPasswordAlreadyEncrypted(a, password);
+#else
+   AddByteToPacket(AP_LOGINFAILED);
+   SendPacket(s->session_id);
+   return;
+#endif
    }
 
    if (strcmp(a->password, password) != 0)
