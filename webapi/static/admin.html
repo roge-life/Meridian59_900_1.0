@@ -1,0 +1,821 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>M59-900 Admin</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4/dist/chart.umd.min.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0c0c0c; color: #d4af37; font-family: 'Georgia', serif; }
+        .panel { background-color: #111; border: 1px solid #2a2200; }
+        .tab-active   { border-bottom: 2px solid #d4af37; color: #d4af37; }
+        .tab-inactive { color: #555; border-bottom: 2px solid transparent; }
+        .tab-inactive:hover { color: #888; }
+        .sub-active   { color: #d4af37; border-bottom: 1px solid #554400; }
+        .sub-inactive { color: #444; border-bottom: 1px solid transparent; }
+        .sub-inactive:hover { color: #777; }
+        .tbl th { color: #d4af37; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.08em; border-bottom: 1px solid #2a2200; padding: 6px 10px; text-align: left; white-space: nowrap; }
+        .tbl td { font-size: 0.72rem; padding: 5px 10px; border-bottom: 1px solid #1a1000; font-family: monospace; color: #ccc; white-space: nowrap; }
+        .tbl tr:hover td { background: #1a1000; }
+        .stat-card { background: #111; border: 1px solid #2a2200; }
+        .stat-card:hover { border-color: #d4af37; }
+        .badge-pvp  { background: #7f1d1d; color: #fca5a5; }
+        .badge-pve  { background: #1e3a1e; color: #86efac; }
+        .badge-active     { background: #1e3040; color: #7dd3fc; }
+        .badge-disbanded  { background: #2a2200; color: #555; }
+        input.search { background: #1a1000; border: 1px solid #2a2200; color: #d4af37; outline: none; padding: 4px 10px; font-size: 0.75rem; border-radius: 3px; }
+        input.search:focus { border-color: #d4af37; }
+        ::-webkit-scrollbar { width: 6px; height: 6px; }
+        ::-webkit-scrollbar-track { background: #0c0c0c; }
+        ::-webkit-scrollbar-thumb { background: #2a2200; border-radius: 3px; }
+        .console-drawer { transition: height 0.18s ease; overflow: hidden; }
+    </style>
+</head>
+<body class="min-h-screen pb-9">
+<div id="app" class="max-w-7xl mx-auto px-4 py-6">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6 border-b border-[#2a2200] pb-4">
+        <div>
+            <h1 class="text-xl font-bold uppercase tracking-widest">Meridian 59 &mdash; 900</h1>
+            <p class="text-[10px] text-gray-600 uppercase tracking-widest mt-0.5">Admin Panel</p>
+        </div>
+        <div class="flex items-center gap-4 text-xs">
+            <span class="text-gray-500 font-mono">{{ adminEmail }}</span>
+            <a href="/" class="text-gray-600 hover:text-gray-400 uppercase tracking-tighter underline text-[10px]">Portal</a>
+            <a href="/login" class="text-gray-600 hover:text-gray-400 uppercase tracking-tighter underline text-[10px]">Switch</a>
+        </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="flex gap-6 mb-6 border-b border-[#1a1000]">
+        <button v-for="t in tabs" :key="t.id"
+            @click="switchTab(t.id)"
+            :class="['pb-2 text-xs uppercase tracking-widest transition-colors', activeTab === t.id ? 'tab-active' : 'tab-inactive']">
+            {{ t.label }}
+        </button>
+    </div>
+
+    <div v-if="loading" class="text-center py-20 text-gray-600 italic animate-pulse">Loading...</div>
+    <div v-else-if="error" class="text-center py-20 text-red-700 italic text-sm">{{ error }}</div>
+
+    <!-- ── Dashboard ─────────────────────────────────────── -->
+    <div v-else-if="activeTab === 'dashboard'">
+        <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 mb-8">
+            <div v-for="c in statCards" :key="c.label" class="stat-card rounded p-4 transition-colors">
+                <p class="text-[9px] uppercase text-gray-600 tracking-widest mb-1">{{ c.label }}</p>
+                <p class="text-2xl font-bold">{{ c.value }}</p>
+            </div>
+        </div>
+        <div class="panel rounded p-4 mb-4">
+            <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">7-Day Activity</p>
+            <canvas ref="weeklyChartCanvas" height="90"></canvas>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div class="panel rounded p-4">
+                <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">Recent Logins</p>
+                <table class="tbl w-full">
+                    <thead><tr><th>Time</th><th>Account</th><th>Character</th><th>IP</th></tr></thead>
+                    <tbody>
+                        <tr v-for="r in recentLogins" :key="r.idplayer_logins">
+                            <td>{{ fmtTime(r.player_logins_time) }}</td>
+                            <td>{{ r.player_logins_account_name }}</td>
+                            <td>{{ r.player_logins_character_name }}</td>
+                            <td>{{ r.player_logins_IP }}</td>
+                        </tr>
+                        <tr v-if="!recentLogins.length"><td colspan="4" class="text-center text-gray-700 py-4 italic">No data yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel rounded p-4">
+                <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">Recent Deaths</p>
+                <table class="tbl w-full">
+                    <thead><tr><th>Time</th><th>Victim</th><th>Killer</th><th>PvP</th></tr></thead>
+                    <tbody>
+                        <tr v-for="r in recentDeaths" :key="r.idplayer_death">
+                            <td>{{ fmtTime(r.player_death_time) }}</td>
+                            <td>{{ r.player_death_victim }}</td>
+                            <td>{{ r.player_death_killer }}</td>
+                            <td><span :class="r.player_death_ispvp ? 'badge-pvp' : 'badge-pve'" class="px-1.5 py-0.5 rounded text-[9px] font-bold">{{ r.player_death_ispvp ? 'PvP' : 'PvE' }}</span></td>
+                        </tr>
+                        <tr v-if="!recentDeaths.length"><td colspan="4" class="text-center text-gray-700 py-4 italic">No data yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Audit Logs (Activity · Combat · Economy) ──────── -->
+    <div v-else-if="activeTab === 'audit'">
+        <div class="flex gap-5 mb-5 border-b border-[#111]">
+            <button v-for="s in auditSubTabs" :key="s.id" @click="switchAuditTab(s.id)"
+                    :class="['pb-1.5 text-[11px] uppercase tracking-widest transition-colors', auditTab === s.id ? 'sub-active' : 'sub-inactive']">
+                {{ s.label }}
+            </button>
+        </div>
+
+        <!-- Activity -->
+        <div v-if="auditTab === 'activity'">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">{{ filteredLogins.length }} records</p>
+                <input class="search" v-model="loginSearch" placeholder="Search...">
+            </div>
+            <div class="panel rounded overflow-x-auto">
+                <table class="tbl w-full">
+                    <thead><tr><th>Time</th><th>Account</th><th>Character</th><th>IP</th></tr></thead>
+                    <tbody>
+                        <tr v-for="r in filteredLogins" :key="r.idplayer_logins">
+                            <td>{{ fmtTime(r.player_logins_time) }}</td>
+                            <td>{{ r.player_logins_account_name }}</td>
+                            <td class="text-[#d4af37]">{{ r.player_logins_character_name }}</td>
+                            <td class="text-gray-600">{{ r.player_logins_IP }}</td>
+                        </tr>
+                        <tr v-if="!filteredLogins.length"><td colspan="4" class="text-center text-gray-700 py-6 italic">No data yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Combat -->
+        <div v-else-if="auditTab === 'combat'">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">{{ filteredDeaths.length }} deaths</p>
+                <input class="search" v-model="deathSearch" placeholder="Search...">
+            </div>
+            <div class="panel rounded overflow-x-auto">
+                <table class="tbl w-full">
+                    <thead><tr><th>Time</th><th>Victim</th><th>Killer</th><th>Room</th><th>Attack</th><th>Type</th></tr></thead>
+                    <tbody>
+                        <tr v-for="r in filteredDeaths" :key="r.idplayer_death">
+                            <td>{{ fmtTime(r.player_death_time) }}</td>
+                            <td class="text-red-400">{{ r.player_death_victim }}</td>
+                            <td class="text-[#d4af37]">{{ r.player_death_killer }}</td>
+                            <td class="text-gray-500">{{ r.player_death_room }}</td>
+                            <td class="text-gray-500">{{ r.player_death_attack }}</td>
+                            <td><span :class="r.player_death_ispvp ? 'badge-pvp' : 'badge-pve'" class="px-1.5 py-0.5 rounded text-[9px] font-bold">{{ r.player_death_ispvp ? 'PvP' : 'PvE' }}</span></td>
+                        </tr>
+                        <tr v-if="!filteredDeaths.length"><td colspan="6" class="text-center text-gray-700 py-6 italic">No deaths recorded yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Economy -->
+        <div v-else-if="auditTab === 'economy'">
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div class="panel rounded p-4">
+                    <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">Money Supply Snapshots</p>
+                    <table class="tbl w-full">
+                        <thead><tr><th>Time</th><th>Total Supply</th></tr></thead>
+                        <tbody>
+                            <tr v-for="r in economy.supply" :key="r.t">
+                                <td>{{ fmtTime(r.t) }}</td>
+                                <td class="text-[#d4af37]">{{ r.v.toLocaleString() }}</td>
+                            </tr>
+                            <tr v-if="!economy.supply?.length"><td colspan="2" class="text-center text-gray-700 py-4 italic">No data yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+                <div class="panel rounded p-4">
+                    <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">Money Creation Events</p>
+                    <table class="tbl w-full">
+                        <thead><tr><th>Time</th><th>Amount Created</th></tr></thead>
+                        <tbody>
+                            <tr v-for="r in economy.created" :key="r.t">
+                                <td>{{ fmtTime(r.t) }}</td>
+                                <td class="text-green-500">+{{ r.v.toLocaleString() }}</td>
+                            </tr>
+                            <tr v-if="!economy.created?.length"><td colspan="2" class="text-center text-gray-700 py-4 italic">No data yet</td></tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Audience Logs (Players · Guilds · Web Users) ──── -->
+    <div v-else-if="activeTab === 'audience'">
+        <div class="flex gap-5 mb-5 border-b border-[#111]">
+            <button v-for="s in audienceSubTabs" :key="s.id" @click="switchAudienceTab(s.id)"
+                    :class="['pb-1.5 text-[11px] uppercase tracking-widest transition-colors', audienceTab === s.id ? 'sub-active' : 'sub-inactive']">
+                {{ s.label }}
+            </button>
+        </div>
+
+        <!-- Players -->
+        <div v-if="audienceTab === 'players'">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">{{ filteredPlayers.length }} players</p>
+                <input class="search" v-model="playerSearch" placeholder="Search...">
+            </div>
+            <div class="panel rounded overflow-x-auto">
+                <table class="tbl w-full">
+                    <thead><tr>
+                        <th>Name</th><th>Guild</th><th>HP</th><th>Mana</th>
+                        <th>Mig</th><th>Int</th><th>Mys</th><th>Stm</th><th>Agl</th><th>Aim</th>
+                        <th>Home</th>
+                    </tr></thead>
+                    <tbody>
+                        <tr v-for="p in filteredPlayers" :key="p.idplayer">
+                            <td class="text-[#d4af37]">{{ p.player_name }}</td>
+                            <td>{{ p.player_guild || '—' }}</td>
+                            <td>{{ p.player_max_health ?? '—' }}</td>
+                            <td>{{ p.player_max_mana ?? '—' }}</td>
+                            <td>{{ p.player_might ?? '—' }}</td>
+                            <td>{{ p.player_int ?? '—' }}</td>
+                            <td>{{ p.player_myst ?? '—' }}</td>
+                            <td>{{ p.player_stam ?? '—' }}</td>
+                            <td>{{ p.player_agil ?? '—' }}</td>
+                            <td>{{ p.player_aim ?? '—' }}</td>
+                            <td class="text-gray-600">{{ p.player_home || '—' }}</td>
+                        </tr>
+                        <tr v-if="!filteredPlayers.length"><td colspan="11" class="text-center text-gray-700 py-6 italic">No players</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Guilds -->
+        <div v-else-if="audienceTab === 'guilds'">
+            <p class="text-[10px] uppercase text-gray-600 mb-3 tracking-widest">{{ guilds.length }} guilds</p>
+            <div class="panel rounded overflow-x-auto">
+                <table class="tbl w-full">
+                    <thead><tr><th>Name</th><th>Leader</th><th>Hall</th><th>Rent Paid</th><th>Status</th></tr></thead>
+                    <tbody>
+                        <tr v-for="g in guilds" :key="g.idguild">
+                            <td class="text-[#d4af37]">{{ g.guild_name }}</td>
+                            <td>{{ g.guild_leader }}</td>
+                            <td class="text-gray-500">{{ g.guild_hall }}</td>
+                            <td>{{ g.guild_rent_paid.toLocaleString() }}</td>
+                            <td>
+                                <span :class="g.guild_disbanded ? 'badge-disbanded' : 'badge-active'" class="px-1.5 py-0.5 rounded text-[9px] font-bold">
+                                    {{ g.guild_disbanded ? 'Disbanded' : 'Active' }}
+                                </span>
+                            </td>
+                        </tr>
+                        <tr v-if="!guilds.length"><td colspan="5" class="text-center text-gray-700 py-6 italic">No guilds yet</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Web Users -->
+        <div v-else-if="audienceTab === 'webusers'">
+            <div class="flex justify-between items-center mb-3">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">{{ webUsers.length }} portal users</p>
+                <input class="search" v-model="webUserSearch" placeholder="Search...">
+            </div>
+            <div class="panel rounded overflow-x-auto">
+                <table class="tbl w-full">
+                    <thead><tr><th>ID</th><th>Email</th><th>Admin</th><th>M59 Accounts</th><th>Created</th><th>Last Login</th><th></th></tr></thead>
+                    <tbody>
+                        <tr v-for="u in filteredWebUsers" :key="u.id">
+                            <td class="text-gray-600">{{ u.id }}</td>
+                            <td class="text-[#d4af37]">{{ u.email }}</td>
+                            <td>
+                                <span v-if="u.is_admin" class="badge-pvp px-1.5 py-0.5 rounded text-[9px] font-bold">Admin</span>
+                                <span v-else class="text-gray-700">—</span>
+                            </td>
+                            <td>
+                                <span v-if="u.m59_accounts && u.m59_accounts.length" class="flex flex-wrap gap-1">
+                                    <span v-for="a in u.m59_accounts" :key="a.slot" class="font-mono text-[10px] text-green-400 bg-[#111] px-1.5 py-0.5 rounded">{{ a.username }}</span>
+                                </span>
+                                <span v-else class="text-gray-700">—</span>
+                            </td>
+                            <td>{{ fmtTime(u.created_at) }}</td>
+                            <td>{{ fmtTime(u.last_login) }}</td>
+                            <td><button @click="openUserDetail(u)" class="text-[10px] text-[#d4af37] hover:underline uppercase tracking-widest">Detail</button></td>
+                        </tr>
+                        <tr v-if="!filteredWebUsers.length"><td colspan="7" class="text-center text-gray-700 py-6 italic">No users</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Commands ───────────────────────────────────────── -->
+    <div v-else-if="activeTab === 'commands'">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+            <!-- Frenzy -->
+            <div class="panel rounded p-5 space-y-4">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">Reign of Blood Frenzy</p>
+                <div class="flex items-center gap-2">
+                    <span :class="frenzyActive ? 'bg-red-900 text-red-300 animate-pulse' : 'bg-[#1a1000] text-gray-600'"
+                          class="px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-widest">
+                        {{ frenzyActive ? 'ACTIVE' : 'INACTIVE' }}
+                    </span>
+                    <button @click="loadFrenzyStatus" class="text-[10px] text-gray-600 hover:text-white">&#8635;</button>
+                </div>
+                <div class="flex items-center gap-2">
+                    <label class="text-[10px] text-gray-500">Duration (min)</label>
+                    <input v-model.number="frenzyDuration" type="number" min="1" max="1440"
+                           class="w-16 bg-[#0a0a0a] border border-[#2a2200] text-white text-[11px] px-2 py-0.5 rounded outline-none" />
+                </div>
+                <div class="flex gap-2">
+                    <button @click="startFrenzy" :disabled="frenzyActive || eventPending"
+                            class="flex-1 text-[10px] uppercase tracking-widest py-1.5 rounded"
+                            :class="frenzyActive || eventPending ? 'bg-[#1a1000] text-gray-700 cursor-not-allowed' : 'bg-red-900 text-red-200 hover:bg-red-800'">Start</button>
+                    <button @click="endFrenzy" :disabled="!frenzyActive || eventPending"
+                            class="flex-1 text-[10px] uppercase tracking-widest py-1.5 rounded"
+                            :class="!frenzyActive || eventPending ? 'bg-[#1a1000] text-gray-700 cursor-not-allowed' : 'bg-[#2a2200] text-[#d4af37] hover:border-[#d4af37]'">End</button>
+                </div>
+                <p v-if="eventMsg" class="text-[10px] font-mono text-green-400 whitespace-pre-wrap">{{ eventMsg }}</p>
+            </div>
+
+            <!-- Hall of Heroes -->
+            <div class="panel rounded p-5 space-y-4">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">Hall of Heroes</p>
+                <p class="text-[11px] text-gray-500">Recalculates champion statues in the Kocatan Hall of Heroes based on current Lore stats.</p>
+                <button @click="updateHoH" :disabled="eventPending"
+                        class="w-full text-[10px] uppercase tracking-widest py-1.5 rounded bg-[#1a1000] text-[#d4af37] hover:border hover:border-[#d4af37]"
+                        :class="eventPending ? 'opacity-50 cursor-not-allowed' : ''">Update Statues</button>
+                <p v-if="hohMsg" class="text-[10px] font-mono text-green-400 whitespace-pre-wrap">{{ hohMsg }}</p>
+            </div>
+
+            <!-- Room Rental -->
+            <div class="panel rounded p-5 space-y-4">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">Inn Room Rental</p>
+                <p class="text-[11px] text-gray-500">Room rental works natively via innkeeper NPCs. Use this only if the rental system needs to be rebuilt after a clean server load.</p>
+                <button @click="recreateRoomRental" :disabled="eventPending"
+                        class="w-full text-[10px] uppercase tracking-widest py-1.5 rounded bg-[#1a1000] text-[#d4af37] hover:border hover:border-[#d4af37]"
+                        :class="eventPending ? 'opacity-50 cursor-not-allowed' : ''">Recreate Rental System</button>
+                <p v-if="rentalMsg" class="text-[10px] font-mono text-green-400 whitespace-pre-wrap">{{ rentalMsg }}</p>
+            </div>
+
+            <!-- Create Account -->
+            <div class="panel rounded p-5 space-y-3">
+                <p class="text-[10px] uppercase text-gray-600 tracking-widest">Create Account</p>
+                <p class="text-[11px] text-gray-500">Create a game account with elevated privileges. Use <em>admin</em> or <em>dm</em> type for staff accounts.</p>
+                <div class="space-y-2">
+                    <input v-model="newAcctName" placeholder="Account name" autocomplete="off"
+                           class="w-full bg-[#0a0a0a] border border-[#2a2200] text-white text-[11px] px-2 py-1 rounded outline-none placeholder-gray-700" />
+                    <input v-model="newAcctPass" type="password" placeholder="Password" autocomplete="new-password"
+                           class="w-full bg-[#0a0a0a] border border-[#2a2200] text-white text-[11px] px-2 py-1 rounded outline-none placeholder-gray-700" />
+                    <input v-model="newAcctEmail" placeholder="Email (optional)" autocomplete="off"
+                           class="w-full bg-[#0a0a0a] border border-[#2a2200] text-white text-[11px] px-2 py-1 rounded outline-none placeholder-gray-700" />
+                    <select v-model="newAcctType"
+                            class="w-full bg-[#0a0a0a] border border-[#2a2200] text-white text-[11px] px-2 py-1 rounded outline-none">
+                        <option value="user">User</option>
+                        <option value="admin">Admin</option>
+                        <option value="dm">DM</option>
+                    </select>
+                </div>
+                <button @click="createAdminAccount" :disabled="eventPending || !newAcctName || !newAcctPass"
+                        class="w-full text-[10px] uppercase tracking-widest py-1.5 rounded"
+                        :class="eventPending || !newAcctName || !newAcctPass ? 'bg-[#1a1000] text-gray-700 cursor-not-allowed' : 'bg-[#2a2200] text-[#d4af37] hover:border hover:border-[#d4af37]'">
+                    Create Account
+                </button>
+                <p v-if="newAcctMsg" :class="newAcctErr ? 'text-red-400' : 'text-green-400'" class="text-[10px] font-mono whitespace-pre-wrap">{{ newAcctMsg }}</p>
+            </div>
+
+        </div>
+    </div>
+
+    <!-- User detail modal -->
+    <div v-if="detailUser" class="fixed inset-0 flex items-center justify-center z-50" style="background:rgba(0,0,0,0.7)" @click.self="detailUser=null">
+        <div class="panel rounded p-6 w-full max-w-md space-y-4" style="background:#111">
+            <div class="flex justify-between items-start">
+                <h2 class="text-[#d4af37] text-sm uppercase tracking-widest">User Detail</h2>
+                <button @click="detailUser=null" class="text-gray-600 hover:text-white text-lg leading-none">&times;</button>
+            </div>
+            <div class="space-y-1 text-[11px]">
+                <div><span class="text-gray-500">Email: </span><span class="text-white">{{ detailUser.email }}</span></div>
+                <div><span class="text-gray-500">ID: </span><span class="text-white">{{ detailUser.id }}</span></div>
+                <div><span class="text-gray-500">Admin: </span><span :class="detailUser.is_admin ? 'text-yellow-400' : 'text-gray-600'">{{ detailUser.is_admin ? 'Yes' : 'No' }}</span></div>
+                <div><span class="text-gray-500">Created: </span><span class="text-white">{{ fmtTime(detailUser.created_at) }}</span></div>
+                <div><span class="text-gray-500">Last Login: </span><span class="text-white">{{ fmtTime(detailUser.last_login) }}</span></div>
+            </div>
+            <div>
+                <p class="text-gray-500 text-[10px] uppercase tracking-widest mb-2">M59 Accounts</p>
+                <div v-if="detailUser.m59_accounts && detailUser.m59_accounts.length" class="space-y-1">
+                    <div v-for="a in detailUser.m59_accounts" :key="a.slot" class="flex justify-between text-[11px] font-mono bg-[#0a0a0a] px-3 py-1.5 rounded">
+                        <span class="text-green-400">{{ a.username }}</span>
+                        <span class="text-gray-600">slot {{ a.slot }}</span>
+                    </div>
+                </div>
+                <p v-else class="text-gray-700 italic text-[11px]">No linked accounts yet</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- ── Console drawer (fixed bottom) ─────────────────── -->
+    <div class="fixed bottom-0 left-0 right-0 z-40" style="background:#0a0a0a; border-top:1px solid #2a2200">
+        <!-- Handle -->
+        <div @click="consoleOpen = !consoleOpen"
+             class="flex items-center justify-between px-4 h-9 cursor-pointer select-none"
+             style="border-bottom: 1px solid #1a1000">
+            <div class="flex items-center gap-3">
+                <span class="font-mono text-[10px] uppercase tracking-widest" style="color:#d4af37; opacity:0.55">&#9656; blakserv console</span>
+                <span v-if="consolePending" class="text-[9px] text-gray-600 italic animate-pulse">running...</span>
+            </div>
+            <span class="text-gray-600 text-[9px] uppercase tracking-widest">{{ consoleOpen ? '▾ collapse' : '▴ expand' }}</span>
+        </div>
+        <!-- Drawer body -->
+        <div class="console-drawer" :style="{ height: consoleOpen ? '320px' : '0' }">
+            <div id="console-output" class="overflow-y-auto font-mono text-[11px] p-3 space-y-1" style="height:276px; background:#0a0a0a">
+                <!-- MOTD -->
+                <div class="text-[10px] leading-relaxed mb-3 pb-2 border-b border-[#2a2200] space-y-3">
+                    <div class="text-[#d4af37] opacity-80 tracking-widest">MERIDIAN 59 · BLAKSERV ADMIN CONSOLE · BUILD 900</div>
+                    <div class="grid grid-cols-2 gap-x-6 gap-y-2 text-[10px]" style="color:#888">
+                        <div>
+                            <div class="text-[#d4af37] opacity-50 uppercase tracking-widest mb-1">Accounts</div>
+                            <div class="space-y-0.5 font-mono" style="color:#aaa">
+                                <div><span style="color:#d4af37">show account</span> &lt;name|id&gt;</div>
+                                <div><span style="color:#d4af37">show accounts</span> · <span style="color:#d4af37">show users</span></div>
+                                <div><span style="color:#d4af37">show active</span> &lt;days&gt;</div>
+                                <div><span style="color:#d4af37">show email</span> &lt;email&gt;</div>
+                                <div><span style="color:#d4af37">show user</span> &lt;name|id&gt;</div>
+                                <div><span style="color:#d4af37">create account</span> &lt;type&gt; &lt;name&gt; &lt;pass&gt; &lt;email&gt;</div>
+                                <div style="padding-left:1em;color:#666">type: user | admin | dm</div>
+                                <div><span style="color:#d4af37">create automated</span> &lt;name&gt; &lt;pass&gt; &lt;email&gt;</div>
+                                <div><span style="color:#d4af37">set account password</span> &lt;id&gt; &lt;pass&gt;</div>
+                                <div><span style="color:#d4af37">set account type</span> &lt;id&gt; &lt;0|1|2&gt;</div>
+                                <div style="padding-left:1em;color:#666">0=user  1=admin  2=dm</div>
+                                <div><span style="color:#d4af37">set account email</span> &lt;id&gt; &lt;email&gt;</div>
+                                <div><span style="color:#d4af37">set account name</span> &lt;id&gt; &lt;name&gt;</div>
+                                <div><span style="color:#d4af37">delete account</span> &lt;id&gt;</div>
+                                <div><span style="color:#d4af37">suspend account</span> &lt;hours&gt; &lt;name|id&gt;</div>
+                                <div><span style="color:#d4af37">unsuspend account</span> &lt;name|id&gt;</div>
+                                <div><span style="color:#d4af37">hangup account</span> &lt;name|id&gt; · <span style="color:#d4af37">hangup all</span></div>
+                                <div><span style="color:#d4af37">hangup ip</span> &lt;ip&gt; · <span style="color:#d4af37">hangup session</span> &lt;id&gt;</div>
+                                <div><span style="color:#d4af37">kickoff account</span> &lt;id&gt; · <span style="color:#d4af37">kickoff all</span></div>
+                            </div>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <div class="text-[#d4af37] opacity-50 uppercase tracking-widest mb-1">Objects &amp; Messages</div>
+                                <div class="space-y-0.5 font-mono" style="color:#aaa">
+                                    <div><span style="color:#d4af37">show object</span> &lt;id&gt;</div>
+                                    <div><span style="color:#d4af37">show instances</span> &lt;class&gt;</div>
+                                    <div><span style="color:#d4af37">show class</span> &lt;class&gt;</div>
+                                    <div><span style="color:#d4af37">show belong</span> &lt;id&gt;</div>
+                                    <div><span style="color:#d4af37">show name</span> &lt;name&gt;</div>
+                                    <div><span style="color:#d4af37">send object</span> &lt;id&gt; &lt;msg&gt; [#p v …]</div>
+                                    <div><span style="color:#d4af37">send class</span> &lt;class&gt; &lt;msg&gt; [#p v …]</div>
+                                    <div><span style="color:#d4af37">send users</span> &lt;text&gt; <span style="color:#555">(broadcast)</span></div>
+                                    <div><span style="color:#d4af37">set object</span> &lt;id&gt; &lt;prop&gt; &lt;type&gt; &lt;val&gt;</div>
+                                    <div><span style="color:#d4af37">trace on</span> &lt;class&gt; &lt;msg&gt;</div>
+                                    <div><span style="color:#d4af37">trace off</span> &lt;class&gt; &lt;msg&gt;</div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-[#d4af37] opacity-50 uppercase tracking-widest mb-1">Server Control</div>
+                                <div class="space-y-0.5 font-mono" style="color:#aaa">
+                                    <div><span style="color:#d4af37">save game</span> · <span style="color:#d4af37">save configuration</span></div>
+                                    <div><span style="color:#d4af37">reload system</span> · <span style="color:#d4af37">reload game</span> &lt;n&gt;</div>
+                                    <div><span style="color:#d4af37">reload motd</span> · <span style="color:#d4af37">reload packages</span></div>
+                                    <div><span style="color:#d4af37">garbage</span> · <span style="color:#d4af37">lock</span> &lt;reason&gt; · <span style="color:#d4af37">unlock</span></div>
+                                    <div><span style="color:#d4af37">terminate save</span> · <span style="color:#d4af37">terminate nosave</span></div>
+                                </div>
+                            </div>
+                            <div>
+                                <div class="text-[#d4af37] opacity-50 uppercase tracking-widest mb-1">Diagnostics</div>
+                                <div class="space-y-0.5 font-mono" style="color:#aaa">
+                                    <div><span style="color:#d4af37">who</span> · <span style="color:#d4af37">show status</span> · <span style="color:#d4af37">show memory</span></div>
+                                    <div><span style="color:#d4af37">show usage</span> · <span style="color:#d4af37">show clock</span></div>
+                                    <div><span style="color:#d4af37">show config</span> · <span style="color:#d4af37">show protocol</span></div>
+                                    <div><span style="color:#d4af37">show timers</span> · <span style="color:#d4af37">show systimers</span></div>
+                                    <div><span style="color:#d4af37">show roomtable</span> · <span style="color:#d4af37">show udp</span></div>
+                                    <div><span style="color:#d4af37">show blockers</span> &lt;room_id&gt;</div>
+                                    <div><span style="color:#d4af37">reset udp</span> · <span style="color:#d4af37">reset highest</span></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- history -->
+                <div v-for="(entry, i) in consoleHistory" :key="i">
+                    <div class="text-[#d4af37]"><span class="opacity-50">blakadm&gt; </span>{{ entry.cmd }}</div>
+                    <div class="text-green-400 whitespace-pre-wrap opacity-90">{{ entry.out }}</div>
+                </div>
+                <div v-if="consolePending" class="text-gray-600 italic">waiting...</div>
+            </div>
+            <!-- Input row -->
+            <div class="flex border-t border-[#2a2a2a] p-2 gap-2" style="height:44px">
+                <span class="font-mono text-[11px] text-[#d4af37] self-center">blakadm&gt;</span>
+                <input
+                    v-model="consoleInput"
+                    @keydown.enter="sendConsoleCmd"
+                    :disabled="consolePending"
+                    class="flex-1 bg-transparent font-mono text-[11px] text-white outline-none"
+                    placeholder="Type a blakserv command and press Enter"
+                    ref="consoleInputEl"
+                    autocomplete="off" spellcheck="false"
+                />
+            </div>
+        </div>
+    </div>
+
+</div>
+
+<script>
+const { createApp, ref, computed, onMounted } = Vue
+
+createApp({
+    setup() {
+        const tabs = [
+            { id: 'dashboard', label: 'Dashboard'     },
+            { id: 'audit',     label: 'Audit Logs'    },
+            { id: 'audience',  label: 'Audience Logs' },
+            { id: 'commands',  label: 'Commands'      },
+        ]
+        const auditSubTabs    = [
+            { id: 'activity', label: 'Activity' },
+            { id: 'combat',   label: 'Combat'   },
+            { id: 'economy',  label: 'Economy'  },
+        ]
+        const audienceSubTabs = [
+            { id: 'players',  label: 'Players'   },
+            { id: 'guilds',   label: 'Guilds'    },
+            { id: 'webusers', label: 'Web Users' },
+        ]
+
+        const activeTab    = ref('dashboard')
+        const auditTab     = ref('activity')
+        const audienceTab  = ref('players')
+        const loading      = ref(true)
+        const error        = ref(null)
+        const adminEmail   = ref('')
+
+        const stats        = ref({})
+        const players      = ref([])
+        const logins       = ref([])
+        const deaths       = ref([])
+        const economy      = ref({ supply: [], created: [] })
+        const guilds       = ref([])
+        const webUsers     = ref([])
+
+        const playerSearch  = ref('')
+        const loginSearch   = ref('')
+        const deathSearch   = ref('')
+        const webUserSearch = ref('')
+
+        const consoleOpen    = ref(false)
+        const consoleHistory = ref([])
+        const consoleInput   = ref('')
+        const consolePending = ref(false)
+        const consoleInputEl = ref(null)
+
+        const weeklyChartCanvas = ref(null)
+        const weeklyStats       = ref(null)
+        let   _weeklyChart      = null
+
+        const detailUser     = ref(null)
+        const frenzyActive   = ref(false)
+        const frenzyDuration = ref(60)
+        const eventPending   = ref(false)
+        const eventMsg       = ref('')
+        const hohMsg         = ref('')
+        const rentalMsg      = ref('')
+        const newAcctName    = ref('')
+        const newAcctPass    = ref('')
+        const newAcctEmail   = ref('')
+        const newAcctType    = ref('user')
+        const newAcctMsg     = ref('')
+        const newAcctErr     = ref(false)
+
+        const cache = {}
+        const api = async (path) => {
+            if (cache[path]) return cache[path]
+            const r = await fetch(path)
+            if (!r.ok) throw new Error(`${r.status} ${r.statusText}`)
+            cache[path] = await r.json()
+            return cache[path]
+        }
+
+        // ── Sub-tab loaders ───────────────────────────────
+        const loadAuditSubTab = async (sub) => {
+            auditTab.value = sub
+            loading.value = true; error.value = null
+            try {
+                if      (sub === 'activity') logins.value   = await api('/admin/api/logins')
+                else if (sub === 'combat')   deaths.value   = await api('/admin/api/deaths')
+                else if (sub === 'economy')  economy.value  = await api('/admin/api/economy')
+            } catch (e) { error.value = e.message }
+            finally { loading.value = false }
+        }
+
+        const loadAudienceSubTab = async (sub) => {
+            audienceTab.value = sub
+            loading.value = true; error.value = null
+            try {
+                if      (sub === 'players')  players.value  = await api('/admin/api/players')
+                else if (sub === 'guilds')   guilds.value   = await api('/admin/api/guilds')
+                else if (sub === 'webusers') webUsers.value = await api('/admin/api/web-users')
+            } catch (e) { error.value = e.message }
+            finally { loading.value = false }
+        }
+
+        const loadTab = async (tab) => {
+            if (tab === 'audit')    { await loadAuditSubTab(auditTab.value);       return }
+            if (tab === 'audience') { await loadAudienceSubTab(audienceTab.value); return }
+            loading.value = true; error.value = null
+            try {
+                if (tab === 'dashboard') {
+                    [stats.value, logins.value, deaths.value, weeklyStats.value] = await Promise.all([
+                        api('/admin/api/stats'),
+                        api('/admin/api/logins'),
+                        api('/admin/api/deaths'),
+                        api('/admin/api/weekly-stats'),
+                    ])
+                } else if (tab === 'commands') {
+                    await loadFrenzyStatus()
+                }
+            } catch (e) { error.value = e.message }
+            finally { loading.value = false }
+        }
+
+        const switchTab         = (id) => { activeTab.value   = id; loadTab(id) }
+        const switchAuditTab    = (id) => { loadAuditSubTab(id) }
+        const switchAudienceTab = (id) => { loadAudienceSubTab(id) }
+
+        // ── Weekly chart ──────────────────────────────────
+        const renderWeeklyChart = (data) => {
+            if (!weeklyChartCanvas.value || !data) return
+            if (_weeklyChart) { _weeklyChart.destroy(); _weeklyChart = null }
+            _weeklyChart = new Chart(weeklyChartCanvas.value, {
+                type: 'line',
+                data: {
+                    labels: data.labels,
+                    datasets: [
+                        { label: 'Logins', data: data.logins, borderColor: '#d4af37', backgroundColor: 'rgba(212,175,55,0.08)', pointBackgroundColor: '#d4af37', tension: 0.3, fill: true, pointRadius: 4 },
+                        { label: 'Deaths', data: data.deaths, borderColor: '#ef4444', backgroundColor: 'rgba(239,68,68,0.06)',   pointBackgroundColor: '#ef4444', tension: 0.3, fill: true, pointRadius: 4 },
+                    ]
+                },
+                options: {
+                    responsive: true, maintainAspectRatio: true,
+                    plugins: { legend: { labels: { color: '#888', font: { size: 10 } } } },
+                    scales: {
+                        x: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1a1000' } },
+                        y: { ticks: { color: '#555', font: { size: 10 } }, grid: { color: '#1a1000' }, beginAtZero: true },
+                    }
+                }
+            })
+        }
+
+        Vue.watch(weeklyStats, async (data) => {
+            if (!data) return
+            await Vue.nextTick()
+            renderWeeklyChart(data)
+        })
+
+        // Focus input when console opens
+        Vue.watch(consoleOpen, async (open) => {
+            if (open) {
+                await Vue.nextTick()
+                if (consoleInputEl.value) consoleInputEl.value.focus()
+            }
+        })
+
+        // ── Server events ─────────────────────────────────
+        const loadFrenzyStatus = async () => {
+            try {
+                const d = await fetch('/admin/api/frenzy/status').then(r => r.json())
+                frenzyActive.value = d.active
+            } catch {}
+        }
+
+        const startFrenzy = async () => {
+            eventPending.value = true; eventMsg.value = ''
+            try {
+                const d = await fetch('/admin/api/frenzy/start', {
+                    method: 'POST', headers: {'Content-Type':'application/json'},
+                    body: JSON.stringify({ duration: frenzyDuration.value })
+                }).then(r => r.json())
+                eventMsg.value = d.output ?? d.detail
+                await loadFrenzyStatus()
+            } finally { eventPending.value = false }
+        }
+
+        const endFrenzy = async () => {
+            eventPending.value = true; eventMsg.value = ''
+            try {
+                const d = await fetch('/admin/api/frenzy/end', { method: 'POST' }).then(r => r.json())
+                eventMsg.value = d.output ?? d.detail
+                await loadFrenzyStatus()
+            } finally { eventPending.value = false }
+        }
+
+        const updateHoH = async () => {
+            eventPending.value = true; hohMsg.value = ''
+            try {
+                const d = await fetch('/admin/api/hall-of-heroes/update', { method: 'POST' }).then(r => r.json())
+                hohMsg.value = d.output ?? d.detail
+            } finally { eventPending.value = false }
+        }
+
+        const recreateRoomRental = async () => {
+            eventPending.value = true; rentalMsg.value = ''
+            try {
+                const d = await fetch('/admin/api/room-rental/recreate', { method: 'POST' }).then(r => r.json())
+                rentalMsg.value = d.output ?? d.detail
+            } finally { eventPending.value = false }
+        }
+
+        const createAdminAccount = async () => {
+            newAcctMsg.value = ''; newAcctErr.value = false; eventPending.value = true
+            try {
+                const r = await fetch('/admin/api/accounts/create', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ name: newAcctName.value, password: newAcctPass.value, email: newAcctEmail.value || newAcctName.value, account_type: newAcctType.value })
+                })
+                const d = await r.json()
+                if (r.ok) { newAcctMsg.value = `Created: ${d.username}`; newAcctName.value = ''; newAcctPass.value = ''; newAcctEmail.value = '' }
+                else { newAcctErr.value = true; newAcctMsg.value = d.detail ?? JSON.stringify(d) }
+            } catch(e) { newAcctErr.value = true; newAcctMsg.value = String(e) }
+            finally { eventPending.value = false }
+        }
+
+        // ── Console ───────────────────────────────────────
+        const sendConsoleCmd = async () => {
+            const cmd = consoleInput.value.trim()
+            if (!cmd || consolePending.value) return
+            consoleInput.value = ''
+            consolePending.value = true
+            try {
+                const r = await fetch('/admin/api/console', {
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ command: cmd })
+                })
+                const data = await r.json()
+                consoleHistory.value.push({ cmd, out: data.output ?? data.detail ?? 'no response' })
+            } catch (e) {
+                consoleHistory.value.push({ cmd, out: 'Error: ' + e.message })
+            } finally {
+                consolePending.value = false
+                await Vue.nextTick()
+                const el = document.getElementById('console-output')
+                if (el) el.scrollTop = el.scrollHeight
+            }
+        }
+
+        const openUserDetail = (u) => { detailUser.value = u }
+
+        const fmtTime = (v) => {
+            if (!v) return '—'
+            const d = new Date(typeof v === 'string' ? v.replace(' ', 'T') : v)
+            if (isNaN(d)) return v
+            return d.toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+        }
+
+        const statCards = computed(() => [
+            { label: 'Players',       value: stats.value.total_players  ?? '—' },
+            { label: 'Active Guilds', value: stats.value.active_guilds  ?? '—' },
+            { label: 'Logins Today',  value: stats.value.logins_today   ?? '—' },
+            { label: 'Deaths Today',  value: stats.value.deaths_today   ?? '—' },
+            { label: 'Web Users',     value: stats.value.web_users      ?? '—' },
+            { label: 'Money Supply',  value: stats.value.money_supply != null ? stats.value.money_supply.toLocaleString() : '—' },
+        ])
+
+        const recentLogins = computed(() => logins.value.slice(0, 10))
+        const recentDeaths = computed(() => deaths.value.slice(0, 10))
+
+        const filteredPlayers = computed(() => {
+            const q = playerSearch.value.toLowerCase()
+            return q ? players.value.filter(p => p.player_name?.toLowerCase().includes(q) || p.player_guild?.toLowerCase().includes(q)) : players.value
+        })
+        const filteredLogins = computed(() => {
+            const q = loginSearch.value.toLowerCase()
+            return q ? logins.value.filter(r => r.player_logins_account_name?.toLowerCase().includes(q) || r.player_logins_character_name?.toLowerCase().includes(q) || r.player_logins_IP?.includes(q)) : logins.value
+        })
+        const filteredDeaths = computed(() => {
+            const q = deathSearch.value.toLowerCase()
+            return q ? deaths.value.filter(r => r.player_death_victim?.toLowerCase().includes(q) || r.player_death_killer?.toLowerCase().includes(q) || r.player_death_room?.toLowerCase().includes(q)) : deaths.value
+        })
+        const filteredWebUsers = computed(() => {
+            const q = webUserSearch.value.toLowerCase()
+            return q ? webUsers.value.filter(u => u.email?.toLowerCase().includes(q)) : webUsers.value
+        })
+
+        onMounted(async () => {
+            try {
+                const me = await fetch('/user/me').then(r => r.json())
+                adminEmail.value = me.user?.email ?? ''
+            } catch {}
+            await loadTab('dashboard')
+        })
+
+        return {
+            tabs, auditSubTabs, audienceSubTabs,
+            activeTab, auditTab, audienceTab,
+            loading, error, adminEmail,
+            stats, statCards, players, logins, deaths, economy, guilds, webUsers,
+            playerSearch, loginSearch, deathSearch, webUserSearch,
+            recentLogins, recentDeaths,
+            filteredPlayers, filteredLogins, filteredDeaths, filteredWebUsers,
+            switchTab, switchAuditTab, switchAudienceTab, fmtTime,
+            consoleOpen, consoleHistory, consoleInput, consolePending, consoleInputEl, sendConsoleCmd,
+            detailUser, openUserDetail,
+            frenzyActive, frenzyDuration, eventPending, eventMsg, hohMsg, rentalMsg,
+            newAcctName, newAcctPass, newAcctEmail, newAcctType, newAcctMsg, newAcctErr,
+            createAdminAccount, loadFrenzyStatus, startFrenzy, endFrenzy, updateHoH, recreateRoomRental,
+            weeklyChartCanvas,
+        }
+    }
+}).mount('#app')
+</script>
+</body>
+</html>

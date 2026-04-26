@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meridian 59 - 900 The Cure</title>
+    <script src="https://unpkg.com/vue@3/dist/vue.global.js"></script>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background-color: #0c0c0c; color: #d4af37; font-family: 'Georgia', serif; }
+        .m59-card { background-color: #1a1a1a; border: 2px solid #d4af37; box-shadow: 0 0 15px rgba(212, 175, 55, 0.2); }
+        .m59-button { background-color: #d4af37; color: #1a1a1a; font-weight: bold; transition: all 0.3s; }
+        .m59-button:hover { background-color: #f1c40f; transform: scale(1.05); }
+        .m59-button:disabled { opacity: 0.5; transform: scale(1) !important; cursor: not-allowed; }
+        .m59-input { background-color: #2a2a2a; border: 1px solid #d4af37; color: #fff; outline: none; }
+        .m59-input:focus { border-color: #f1c40f; box-shadow: 0 0 5px rgba(241, 196, 15, 0.5); }
+        .slot-row { transition: background-color 0.15s, color 0.15s; }
+        .slot-row.selected { background-color: #d4af37; color: #1a1a1a; }
+        .slot-row:not(.selected):hover { background-color: #2a2200; }
+    </style>
+</head>
+<body class="flex items-center justify-center min-h-screen">
+    <div id="app" class="w-full max-w-md p-8 m59-card rounded-lg text-center">
+        <div class="mb-8">
+            <h1 class="text-3xl uppercase tracking-widest font-bold">The Cure</h1>
+            <h2 class="text-sm text-gray-500 uppercase tracking-widest mt-1">Meridian 59 &mdash; 900</h2>
+        </div>
+
+        <div v-if="loading" class="animate-pulse py-10 italic">Consulting the Oracle...</div>
+
+        <div v-else>
+            <!-- Login State -->
+            <div v-if="!user.authenticated">
+                <p class="mb-8 text-gray-300 leading-relaxed">Verification is required to enter the realm of account management.</p>
+                <a href="/login" class="inline-block px-10 py-4 m59-button rounded uppercase tracking-widest text-sm">
+                    Connect with Google
+                </a>
+                <p class="mt-6 text-xs text-gray-600 italic">Discord verification coming soon.</p>
+            </div>
+
+            <!-- Dashboard State -->
+            <div v-else>
+                <!-- Identity strip -->
+                <div class="mb-6 p-3 bg-black rounded border border-gray-800 flex items-center justify-between">
+                    <div class="text-left">
+                        <p class="text-[10px] text-gray-500 uppercase font-bold">Authenticated As</p>
+                        <p class="text-white text-xs font-mono truncate max-w-[220px]">{{ user.user.email }}</p>
+                    </div>
+                    <div v-if="user.user.is_admin" class="bg-red-900 px-2 py-0.5 rounded text-[10px] text-white font-bold animate-pulse">ADMIN</div>
+                </div>
+
+                <!-- Account List Panel -->
+                <div v-if="slotsLoading" class="py-6 italic text-sm text-gray-500 animate-pulse">Loading accounts...</div>
+
+                <div v-else class="mb-5 border border-[#d4af37] rounded overflow-hidden">
+                    <!-- Existing accounts -->
+                    <div
+                        v-for="slot in existingSlots"
+                        :key="slot.slot"
+                        @click="selectSlot(slot.slot)"
+                        :class="['slot-row cursor-pointer flex items-center gap-3 px-4 py-3 border-b border-[#2a2200] text-left', selectedSlot === slot.slot ? 'selected' : '']"
+                    >
+                        <span class="text-base shrink-0">⚔</span>
+                        <div class="min-w-0">
+                            <p class="text-xs font-mono truncate">{{ slot.username }}</p>
+                            <p class="text-[10px] opacity-60 uppercase tracking-wide">Slot {{ slot.slot }}</p>
+                        </div>
+                    </div>
+
+                    <!-- New Account row -->
+                    <div
+                        v-if="hasEmptySlot"
+                        @click="selectSlot('new')"
+                        :class="['slot-row cursor-pointer flex items-center gap-3 px-4 py-3 text-left', selectedSlot === 'new' ? 'selected' : 'opacity-50']"
+                    >
+                        <span class="text-base shrink-0">＋</span>
+                        <div>
+                            <p class="text-xs italic">New Account</p>
+                            <p class="text-[10px] opacity-60 uppercase tracking-wide">{{ remainingSlots }} slot{{ remainingSlots !== 1 ? 's' : '' }} remaining</p>
+                        </div>
+                    </div>
+
+                    <!-- No slots left -->
+                    <div v-if="!hasEmptySlot && existingSlots.length === 0" class="px-4 py-6 text-sm text-gray-500 italic">
+                        No accounts found.
+                    </div>
+                </div>
+
+                <!-- Action Panel (shown once a slot is selected) -->
+                <div v-if="selectedSlot !== null && !successMessage" class="space-y-3">
+                    <div class="text-left">
+                        <label class="text-[10px] uppercase text-gray-500 ml-1">
+                            {{ selectedSlot === 'new' ? 'Choose a Password' : 'New Password' }}
+                        </label>
+                        <input
+                            v-model="password"
+                            type="password"
+                            class="w-full p-3 m59-input rounded text-sm mt-1"
+                            :placeholder="selectedSlot === 'new' ? 'Password for new account' : 'Enter new password'"
+                            required
+                        >
+                    </div>
+                    <button
+                        @click="submit"
+                        :disabled="submitting || !password"
+                        class="w-full py-4 m59-button rounded uppercase tracking-widest text-sm shadow-lg"
+                    >
+                        <span v-if="submitting">Transmitting...</span>
+                        <span v-else-if="selectedSlot === 'new'">Create Account</span>
+                        <span v-else>Change Password</span>
+                    </button>
+                </div>
+
+                <!-- Success -->
+                <div v-if="successMessage" class="mt-4 p-5 bg-green-950 border-2 border-green-500 text-white rounded text-left">
+                    <p class="font-bold mb-1">&#10024; Success</p>
+                    <p class="text-xs text-green-200 italic leading-relaxed">{{ successMessage }}</p>
+                    <button @click="dismiss" class="mt-3 text-[10px] uppercase underline hover:text-white">Back to portal</button>
+                </div>
+
+                <!-- Error -->
+                <div v-if="error" class="mt-3 p-3 bg-red-950 border border-red-800 text-red-200 text-xs rounded italic">
+                    {{ error }}
+                </div>
+
+                <div class="mt-8 flex items-center justify-between border-t border-gray-900 pt-4">
+                    <a v-if="user.user.is_admin" href="/admin" class="text-[10px] uppercase hover:text-white underline tracking-tighter">Admin Portal</a>
+                    <a href="/login" class="text-[10px] uppercase text-gray-600 hover:text-gray-400 underline ml-auto">Switch Identity</a>
+                </div>
+            </div>
+        </div>
+
+        <!-- Client Download -->
+        <div class="mt-10 pt-6 border-t border-gray-900">
+            <p class="text-[10px] uppercase text-gray-500 mb-3 tracking-widest">Game Client</p>
+            <a href="/static/meridian59_900.zip" class="inline-block px-6 py-2 border border-gray-700 rounded text-xs hover:bg-gray-900 transition-colors">
+                Download Meridian 59 &mdash; 900 The Cure (292MB)
+            </a>
+            <div class="mt-3">
+                <!-- ASCII Client expand toggle -->
+                <button
+                    @click="asciiOpen = !asciiOpen"
+                    style="font-family: monospace; color: #ff6600; text-shadow: 0 0 6px #ff6600aa; border-color: #ff6600aa;"
+                    class="px-6 py-2 border rounded text-xs hover:bg-[#1a0a00] transition-colors w-full text-left flex items-center justify-between">
+                    <span>&#x2588; Experimental ASCII Client</span>
+                    <span style="font-size:10px; opacity:0.7">{{ asciiOpen ? '&#x25B2;' : '&#x25BC;' }}</span>
+                </button>
+                <div v-if="asciiOpen" class="mt-1 border border-[#ff660044] rounded overflow-hidden">
+                    <a href="/static/meridian59-tuiclient-windows.zip"
+                       data-size-windows="44M"
+                       style="font-family: monospace; color: #ff6600;"
+                       class="flex items-center justify-between px-4 py-2 text-xs hover:bg-[#1a0a00] transition-colors border-b border-[#ff660022]">
+                        <span>&#x25A6; Windows (x64)</span>
+                        <span class="opacity-50" data-label-windows>44M</span>
+                    </a>
+                    <a href="/static/meridian59-tuiclient-macos-arm64.zip"
+                       data-size-macos="42M"
+                       style="font-family: monospace; color: #ff6600;"
+                       class="flex items-center justify-between px-4 py-2 text-xs hover:bg-[#1a0a00] transition-colors border-b border-[#ff660022]">
+                        <span>&#x25A6; macOS (Apple Silicon)</span>
+                        <span class="opacity-50" data-label-macos>42M</span>
+                    </a>
+                    <a href="/static/meridian59-tuiclient-linux-x64.zip"
+                       data-size-linux-x64="43M"
+                       style="font-family: monospace; color: #ff6600;"
+                       class="flex items-center justify-between px-4 py-2 text-xs hover:bg-[#1a0a00] transition-colors border-b border-[#ff660022]">
+                        <span>&#x25A6; Linux (x64)</span>
+                        <span class="opacity-50" data-label-linux-x64>43M</span>
+                    </a>
+                    <a href="/static/meridian59-tuiclient-linux-aarch64.zip"
+                       data-size-linux-aarch64="42M"
+                       style="font-family: monospace; color: #ff6600;"
+                       class="flex items-center justify-between px-4 py-2 text-xs hover:bg-[#1a0a00] transition-colors">
+                        <span>&#x25A6; Linux (aarch64 / ARM)</span>
+                        <span class="opacity-50" data-label-linux-aarch64>42M</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-12 opacity-30 grayscale contrast-125">
+            <img src="https://www.meridian59.com/images/meridian59logo.png" class="h-8 mx-auto" alt="">
+        </div>
+    </div>
+
+    <script>
+        const { createApp, ref, computed, onMounted } = Vue
+        createApp({
+            setup() {
+                const asciiOpen   = ref(false)
+                const user        = ref({ authenticated: false })
+                const slots       = ref([])
+                const loading     = ref(true)
+                const slotsLoading = ref(false)
+                const submitting  = ref(false)
+                const selectedSlot = ref(null)
+                const password    = ref('')
+                const error       = ref(null)
+                const successMessage = ref(null)
+
+                const existingSlots = computed(() => slots.value.filter(s => s.exists))
+                const hasEmptySlot  = computed(() => slots.value.some(s => !s.exists))
+                const remainingSlots = computed(() => slots.value.filter(s => !s.exists).length)
+
+                const fetchUser = async () => {
+                    try {
+                        const res = await fetch('/user/me')
+                        user.value = await res.json()
+                        if (user.value.authenticated) await fetchSlots()
+                    } finally {
+                        loading.value = false
+                    }
+                }
+
+                const fetchSlots = async () => {
+                    slotsLoading.value = true
+                    try {
+                        const res = await fetch('/accounts/me')
+                        const data = await res.json()
+                        slots.value = data.slots || []
+                    } catch (e) {
+                        console.error('Failed to fetch slots', e)
+                    } finally {
+                        slotsLoading.value = false
+                    }
+                }
+
+                const selectSlot = (slot) => {
+                    selectedSlot.value = slot
+                    password.value = ''
+                    error.value = null
+                    successMessage.value = null
+                }
+
+                const submit = async () => {
+                    if (!password.value) return
+                    submitting.value = true
+                    error.value = null
+
+                    const isNew = selectedSlot.value === 'new'
+                    const endpoint = isNew ? '/accounts/create' : '/accounts/reset-password'
+                    const body = isNew
+                        ? { password: password.value }
+                        : { password: password.value, slot: selectedSlot.value }
+
+                    try {
+                        const res = await fetch(endpoint, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify(body)
+                        })
+                        const data = await res.json()
+                        if (res.ok) {
+                            successMessage.value = isNew
+                                ? `Account created: ${data.username}`
+                                : `Password updated for ${data.username}`
+                            await fetchSlots()
+                        } else {
+                            error.value = data.detail || 'Action failed'
+                        }
+                    } catch (e) {
+                        error.value = 'Network error communicating with portal'
+                    } finally {
+                        submitting.value = false
+                    }
+                }
+
+                const dismiss = () => {
+                    successMessage.value = null
+                    password.value = ''
+                    selectedSlot.value = null
+                }
+
+                onMounted(fetchUser)
+                return {
+                    asciiOpen,
+                    user, slots, loading, slotsLoading, submitting,
+                    selectedSlot, password, error, successMessage,
+                    existingSlots, hasEmptySlot, remainingSlots,
+                    selectSlot, submit, dismiss
+                }
+            }
+        }).mount('#app')
+    </script>
+</body>
+</html>

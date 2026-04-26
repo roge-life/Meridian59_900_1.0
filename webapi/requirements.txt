@@ -1,0 +1,10 @@
+fastapi
+uvicorn[standard]
+sqlalchemy
+pymysql
+pydantic[email]
+python-dotenv
+email-validator
+authlib
+httpx
+itsdangerous
