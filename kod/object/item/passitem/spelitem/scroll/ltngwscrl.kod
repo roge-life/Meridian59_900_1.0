@@ -1,0 +1,38 @@
+// Meridian 59, Copyright 1994-2012 Andrew Kirmse and Chris Kirmse.
+// All rights reserved.
+//
+// This software is distributed under a license that is described in
+// the LICENSE file that accompanies it.
+//
+// Meridian is a registered trademark.
+
+
+////////////////////////////////////////////////////////////////////////////////
+LightningWallScroll is Scroll
+
+constants:
+
+   include blakston.khd
+
+resources:
+
+   include ltngwscrl.lkod
+
+   LightningWallScroll_label_name_rsc = "scroll of lightning wall"
+   LightningWallScroll_icon_rsc = scr09.bgf
+
+classvars:
+
+   vrLabelName = LightningWallScroll_label_name_rsc
+   vrIcon = LightningWallScroll_icon_rsc
+   viSpellEffect = SID_LIGHTNING_WALL
+   viColor = XLAT_TO_YELLOW
+   // 3125 * 160 / 100 = 5000 shillings at MERCHANT_NORMAL markup
+   viValue_average = 3125
+
+properties:
+
+messages:
+
+end
+////////////////////////////////////////////////////////////////////////////////

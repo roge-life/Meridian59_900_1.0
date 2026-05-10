@@ -103,7 +103,8 @@ messages:
    SetForSale()
    {
       plFor_Sale = [
-         $,$,
+         [Create(&LightningWallScroll,#labelled=TRUE)],
+         $,
          [
             SID_SPORE_BURST,
             SID_CURSE_WEAPON,
