@@ -28,8 +28,6 @@ classvars:
    vrName = lightning_name_rsc
    vrIcon = lightning_look_icon
    vrDesc = lightning_desc_rsc
-   vrProjectile_icon = lightning_icon_rsc
-
    viSpell_num = SID_LIGHTNING_BOLT
 
    viSpell_type = SPL_TYPE_ALL+SPL_TYPE_SHOCK
@@ -45,22 +43,11 @@ classvars:
 
    viPostCast_time = 2        // in seconds, since it works off gettime()
 
-   // Projectile lighting information.
-   viProjectileLightFlags = LIGHT_FLAG_ON | LIGHT_FLAG_DYNAMIC
-   // Medium light range, out of 255.
-   viProjectileLightIntensity = 100
-   // Color is lightning.
-   viProjectileLightColor = LIGHT_LIGHTNING
-
 properties:
 
    piDamageMin = 13
    piDamageMax = 18
    prSpellHit = lightning_hit_rsc
-   plBoltflashes = $
-   plBoltTimers = $
-   ptBoltTimer = $
-   poNewBolt = $
 
 messages:
 
@@ -76,104 +63,28 @@ messages:
       return;
    }
 
-   GetProjectileSpeed()
-   {
-      return 12;
-   }
-
-   SendProjectileAnimation()
-   {
-      //AddPacket(1, ANIMATE_CYCLE, 4, 40, 2, 2, 2, 3);   // 40ms between animations
-      AddPacket(1, ANIMATE_NONE, 2,1);   // 40ms between animations
-
-      return;
-   }
-
-
    DoSpellEffects(what=$,who=$, lTargets=$, state=$,iSpellPower=$,iPowerLevel=100,
              bItemCast=FALSE, bRing=FALSE, bStun=FALSE,report=TRUE, iDamage=$)
    {
-      local oTargeted, oRoom, poNewBolt, oElement;
+      local oTargeted, oRoom, poNewBolt;
 
-   oTargeted = First(lTargets);
-   oRoom = Send(oTargeted,@GetOwner);
-   //poNewBolt = Create(&Boltflash);
-      
+      oTargeted = First(lTargets);
+      oRoom = Send(oTargeted,@GetOwner);
 
-               // [(1)caster,(2)spellpower,(3)duration,(4)charges,(5)speed,(6)direction,(7)step,(8)noise,(9)curve]
-               poNewBolt = Create(&Boltflash,#seed=[oTargeted,1,500,0,0,0,0,0,0]);
-               Send(oRoom,@NewHold,#what=poNewBolt,#new_row=Send(oTargeted,@GetRow),#new_col=Send(oTargeted,@GetCol),
-               #fine_row=Send(oTargeted,@GetFineRow),#fine_col=Send(oTargeted,@GetFineCol));
-      
-                     //From SPIDER
-               //oElement = Create(&Web,#seed=[oTargeted,20,10000,0,0,0,0,0,0]);
-               //Send(oRoom,@NewHold,#what=oElement,#new_row=Send(oTargeted,@GetRow),#new_col=Send(oTargeted,@GetCol),
-                // #fine_row=Send(oTargeted,@GetFineRow),#fine_col=Send(oTargeted,@GetFineCol));
-   
-   
-   
-   //Send(oRoom,@NewHold,#what=poNewBolt,
-    //        #new_row=Send(oTargeted,@GetRow),
-    //        #new_col=Send(oTargeted,@GetCol),
-    //        #fine_row=Send(oTargeted,@GetFineRow),
-    //        #fine_col=Send(oTargeted,@GetFineCol));
+      poNewBolt = Create(&Boltflash,#seed=[oTargeted,1,500,0,0,0,0,0,0]);
+      Send(oRoom,@NewHold,#what=poNewBolt,
+           #new_row=Send(oTargeted,@GetRow),#new_col=Send(oTargeted,@GetCol),
+           #fine_row=Send(oTargeted,@GetFineRow),#fine_col=Send(oTargeted,@GetFineCol));
 
-   //plBoltflashes = Cons(poNewBolt,plBoltflashes);
-   //Send(poNewBolt,@NewHold,#what=plBoltflashes);
-   //ptBoltTimer = createtimer(First(plBoltflashes),@DeleteBolts,500);
-   //plBoltTimers = Cons(ptBoltTimer,plBoltTimers);
-   //Send(poNewBolt,@NewHold,#what=plBoltTimers);
-   
-   Send(oRoom,@SomethingWaveRoom,#what=poNewBolt,#wave_rsc=vrSucceed_wav);
-                  //#flags=SOUND_RANDOM_PITCH used to be in above.
-   
-   propagate;
+      Send(oRoom,@SomethingWaveRoom,#what=poNewBolt,#wave_rsc=vrSucceed_wav);
+
+      return;
    }
-
-   //DeleteBolts(timer = $)
-   //{
-    //  local oLastBoltTimer;
-   
-   //   Send(Last(plBoltflashes),@Delete);
-   //   oLastBoltTimer = Last(plBoltTimers);
-   //   if oLastBoltTimer <> $
-   //   {
-   //      DeleteTimer(oLastBoltTimer);
-   //   }
-   //   Debug(Last(plBoltTimers), "last/plBoltTimers");
-   //   Debug(Last(plBoltflashes), "last/plBoltflashes");
-      //plBoltflashes = DelLastListElem(plBoltflashes);
-      //plBoltTimers = DelLastListElem(plBoltTimers);
-
-   //   return;
-   //}
 
    Delete()
    {
       propagate;
    }
-//overrides bolt projectile
-   GetProjectileIcon()
-   {
-      return FALSE;
-   }
-
-   GetProjectileLightFlags()
-   {
-      return FALSE;
-   }
-
-   GetProjectileLightIntensity()
-   {
-      return FALSE;
-   }
-
-   GetProjectileLightColor()
-   {
-      return FALSE;
-   }
-
-
 
 end
 
