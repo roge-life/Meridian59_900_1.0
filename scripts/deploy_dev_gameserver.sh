@@ -5,6 +5,7 @@ set -euo pipefail
 
 REPO="roge-life/Meridian59_900_1.0"
 GAME_HOST="901.emfiftynine.info"
+DB_HOST_NAME="dev.emfiftynine.info"
 STAGING=$(mktemp -d)
 trap 'rm -rf "$STAGING"' EXIT
 
@@ -74,6 +75,14 @@ rsync -rlpt --delete \
     --exclude '*.exe' --exclude '*.pdb' --exclude '*.dll' \
     --exclude 'channel/*' --exclude 'savegame/*' --exclude '*.log' \
     "$STAGING/server/" "root@$GAME_HOST:/opt/meridian59/"
+
+echo "==> Patching blakserv.cfg for dev environment"
+DB_HOST=$(getent hosts "$DB_HOST_NAME" | awk '{print $1}' | head -1)
+ssh -o StrictHostKeyChecking=no "root@$GAME_HOST" bash -s <<REMOTE
+sed -i 's/^Enabled.*/Enabled     Yes/' /opt/meridian59/blakserv.cfg
+sed -i 's/^Host.*/Host        $DB_HOST/' /opt/meridian59/blakserv.cfg
+grep -A5 '\[MySQL\]' /opt/meridian59/blakserv.cfg
+REMOTE
 
 echo "==> Fixing permissions and starting blakserv"
 ssh -o StrictHostKeyChecking=no "root@$GAME_HOST" bash -s <<'REMOTE'
