@@ -255,6 +255,20 @@ def admin_panel(admin=Depends(require_admin)):
     with open(path) as f:
         return f.read()
 
+def _bdb_scalar(bdb, query, params=None):
+    try:
+        return bdb.execute(text(query), params or {}).scalar() or 0
+    except Exception:
+        bdb.rollback()
+        return 0
+
+def _bdb_rows(bdb, query):
+    try:
+        return [dict(r._mapping) for r in bdb.execute(text(query)).fetchall()]
+    except Exception:
+        bdb.rollback()
+        return []
+
 @app.get("/admin/api/stats")
 def admin_stats(
     admin=Depends(require_admin),
@@ -263,28 +277,25 @@ def admin_stats(
 ):
     today = datetime.datetime.utcnow().date()
     return {
-        "total_players":  bdb.execute(text("SELECT COUNT(*) FROM player")).scalar(),
-        "active_guilds":  bdb.execute(text("SELECT COUNT(*) FROM guild WHERE guild_disbanded=0")).scalar(),
-        "logins_today":   bdb.execute(text("SELECT COUNT(*) FROM player_logins WHERE DATE(player_logins_time)=:d"), {"d": today}).scalar(),
-        "deaths_today":   bdb.execute(text("SELECT COUNT(*) FROM player_death WHERE DATE(player_death_time)=:d"),  {"d": today}).scalar(),
+        "total_players":  _bdb_scalar(bdb, "SELECT COUNT(*) FROM player"),
+        "active_guilds":  _bdb_scalar(bdb, "SELECT COUNT(*) FROM guild WHERE guild_disbanded=0"),
+        "logins_today":   _bdb_scalar(bdb, "SELECT COUNT(*) FROM player_logins WHERE DATE(player_logins_time)=:d", {"d": today}),
+        "deaths_today":   _bdb_scalar(bdb, "SELECT COUNT(*) FROM player_death WHERE DATE(player_death_time)=:d",  {"d": today}),
         "web_users":      db.execute(text("SELECT COUNT(*) FROM web_users")).scalar(),
-        "money_supply":   bdb.execute(text("SELECT player_money_total_amount FROM player_money_total ORDER BY player_money_total_time DESC LIMIT 1")).scalar() or 0,
+        "money_supply":   _bdb_scalar(bdb, "SELECT player_money_total_amount FROM player_money_total ORDER BY player_money_total_time DESC LIMIT 1"),
     }
 
 @app.get("/admin/api/players")
 def admin_players(admin=Depends(require_admin), bdb: Session = Depends(get_blakserv_db)):
-    rows = bdb.execute(text("SELECT * FROM player ORDER BY player_name")).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return _bdb_rows(bdb, "SELECT * FROM player ORDER BY player_name")
 
 @app.get("/admin/api/logins")
 def admin_logins(admin=Depends(require_admin), bdb: Session = Depends(get_blakserv_db)):
-    rows = bdb.execute(text("SELECT * FROM player_logins ORDER BY player_logins_time DESC LIMIT 200")).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return _bdb_rows(bdb, "SELECT * FROM player_logins ORDER BY player_logins_time DESC LIMIT 200")
 
 @app.get("/admin/api/deaths")
 def admin_deaths(admin=Depends(require_admin), bdb: Session = Depends(get_blakserv_db)):
-    rows = bdb.execute(text("SELECT * FROM player_death ORDER BY player_death_time DESC LIMIT 200")).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return _bdb_rows(bdb, "SELECT * FROM player_death ORDER BY player_death_time DESC LIMIT 200")
 
 def _iso(v) -> str:
     if isinstance(v, datetime.datetime):
@@ -293,8 +304,12 @@ def _iso(v) -> str:
 
 @app.get("/admin/api/economy")
 def admin_economy(admin=Depends(require_admin), bdb: Session = Depends(get_blakserv_db)):
-    supply  = bdb.execute(text("SELECT player_money_total_time, player_money_total_amount FROM player_money_total ORDER BY player_money_total_time DESC LIMIT 500")).fetchall()
-    created = bdb.execute(text("SELECT money_created_time, money_created_amount FROM money_created ORDER BY money_created_time DESC LIMIT 500")).fetchall()
+    try:
+        supply  = bdb.execute(text("SELECT player_money_total_time, player_money_total_amount FROM player_money_total ORDER BY player_money_total_time DESC LIMIT 500")).fetchall()
+        created = bdb.execute(text("SELECT money_created_time, money_created_amount FROM money_created ORDER BY money_created_time DESC LIMIT 500")).fetchall()
+    except Exception:
+        bdb.rollback()
+        supply, created = [], []
     return {
         "supply":  [{"t": _iso(r[0]), "v": int(r[1])} for r in supply],
         "created": [{"t": _iso(r[0]), "v": int(r[1])} for r in created],
@@ -302,8 +317,7 @@ def admin_economy(admin=Depends(require_admin), bdb: Session = Depends(get_blaks
 
 @app.get("/admin/api/guilds")
 def admin_guilds(admin=Depends(require_admin), bdb: Session = Depends(get_blakserv_db)):
-    rows = bdb.execute(text("SELECT * FROM guild ORDER BY guild_disbanded, guild_name")).fetchall()
-    return [dict(r._mapping) for r in rows]
+    return _bdb_rows(bdb, "SELECT * FROM guild ORDER BY guild_disbanded, guild_name")
 
 @app.get("/admin/api/web-users")
 def admin_web_users(admin=Depends(require_admin), db: Session = Depends(get_db)):
@@ -346,10 +360,8 @@ def admin_weekly_stats(admin=Depends(require_admin), bdb: Session = Depends(get_
     for i in range(6, -1, -1):
         day = today - datetime.timedelta(days=i)
         labels.append(day.strftime("%b %d"))
-        logins.append(bdb.execute(
-            text("SELECT COUNT(*) FROM player_logins WHERE DATE(player_logins_time)=:d"), {"d": day}).scalar())
-        deaths.append(bdb.execute(
-            text("SELECT COUNT(*) FROM player_death WHERE DATE(player_death_time)=:d"),  {"d": day}).scalar())
+        logins.append(_bdb_scalar(bdb, "SELECT COUNT(*) FROM player_logins WHERE DATE(player_logins_time)=:d", {"d": day}))
+        deaths.append(_bdb_scalar(bdb, "SELECT COUNT(*) FROM player_death WHERE DATE(player_death_time)=:d",  {"d": day}))
     return {"labels": labels, "logins": logins, "deaths": deaths}
 
 

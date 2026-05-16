@@ -1,0 +1,16 @@
+[Unit]
+Description=Meridian 59 Web API (Dev)
+After=network.target mariadb.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+WorkingDirectory=/opt/m59-account-api
+EnvironmentFile=/opt/m59-account-api/.env
+ExecStart=/opt/m59-account-api/venv/bin/uvicorn app.main:app --host 127.0.0.1 --port 8000
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target

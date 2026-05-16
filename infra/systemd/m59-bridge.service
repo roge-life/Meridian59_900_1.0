@@ -1,0 +1,17 @@
+[Unit]
+Description=M59 HTTP Bridge (port 9999 -> blakserv TCP 9998)
+After=blakserv.service
+
+[Service]
+Type=simple
+User=meridian
+Group=meridian
+ExecStart=/usr/bin/python3 /opt/m59-bridge/bridge.py
+Restart=on-failure
+RestartSec=3s
+Environment=M59_HOST=127.0.0.1
+Environment=M59_MAINTENANCE_PORT=9998
+Environment=BRIDGE_PORT=9999
+
+[Install]
+WantedBy=multi-user.target

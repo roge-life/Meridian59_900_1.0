@@ -1,0 +1,15 @@
+[Unit]
+Description=Meridian 59 Game Server (Server 900)
+After=network.target
+
+[Service]
+Type=simple
+User=meridian
+Group=meridian
+WorkingDirectory=/opt/meridian59
+ExecStart=/opt/meridian59/blakserv -i
+Restart=on-failure
+RestartSec=5s
+
+[Install]
+WantedBy=multi-user.target
