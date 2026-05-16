@@ -120,6 +120,8 @@ NGINXEOF
 ln -sf /etc/nginx/sites-available/m59-webapi /etc/nginx/sites-enabled/
 nginx -t && systemctl enable --now nginx && systemctl reload nginx
 
+certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect
+
 systemctl status m59-webapi --no-pager
 REMOTE
 
