@@ -23,8 +23,6 @@
 
 static void HandleShutdownSignal(int sig)
 {
-   lprintf("Received signal %d — saving game before shutdown\n", sig);
-   SaveAll();
    SetQuit();
 }
 
@@ -191,8 +189,10 @@ void Daemonize()
 
 void MainExitServer()
 {
-   lprintf("ExitServer terminating server\n");
-	
+   lprintf("ExitServer saving and terminating server\n");
+
+   SaveAll();
+
    ExitAsyncConnections();
 	
    CloseAllSessions(); /* gotta do this before anything, cause it uses kod, accounts */
