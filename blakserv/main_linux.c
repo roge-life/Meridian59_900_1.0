@@ -19,6 +19,14 @@
 */
 
 #include "blakserv.h"
+#include <signal.h>
+
+static void HandleShutdownSignal(int sig)
+{
+   lprintf("Received signal %d — saving game before shutdown\n", sig);
+   SaveAll();
+   SetQuit();
+}
 
 int MainServer(int argc, char** argv)
 {
@@ -133,6 +141,9 @@ int MainServer(int argc, char** argv)
    InitAsyncConnections();
    AsyncSocketStart();
    UpdateSecurityRedbook();
+   signal(SIGTERM, HandleShutdownSignal);
+   signal(SIGHUP,  HandleShutdownSignal);
+
    UnpauseTimers();
    ServiceTimers(); /* returns if server termiated */
 
