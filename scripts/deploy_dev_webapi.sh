@@ -102,7 +102,8 @@ systemctl enable m59-webapi
 systemctl restart m59-webapi
 
 rm -f /etc/nginx/sites-enabled/default
-cat > /etc/nginx/sites-available/m59-webapi <<NGINXEOF
+if [ ! -f /etc/nginx/sites-available/m59-webapi ]; then
+    cat > /etc/nginx/sites-available/m59-webapi <<NGINXEOF
 server {
     listen 80;
     server_name \$DOMAIN;
@@ -116,11 +117,14 @@ server {
     }
 }
 NGINXEOF
+    echo "==> Fresh nginx config written. Run certbot once DNS is live:"
+    echo "    certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect"
+else
+    echo "==> nginx config already exists, leaving it untouched"
+fi
 
 ln -sf /etc/nginx/sites-available/m59-webapi /etc/nginx/sites-enabled/
 nginx -t && systemctl enable --now nginx && systemctl reload nginx
-
-certbot --nginx -d "$DOMAIN" --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect
 
 systemctl status m59-webapi --no-pager
 REMOTE
