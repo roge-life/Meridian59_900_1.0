@@ -8,7 +8,7 @@
 
 
 ////////////////////////////////////////////////////////////////////////////////
-Lightning is BoltSpell
+Lightning is AttackSpell
 
 constants:
    include blakston.khd
@@ -28,7 +28,6 @@ classvars:
    vrName = lightning_name_rsc
    vrIcon = lightning_look_icon
    vrDesc = lightning_desc_rsc
-   vrProjectile_icon = lightning_icon_rsc
    viSpell_num = SID_LIGHTNING_BOLT
 
    viSpell_type = SPL_TYPE_ALL+SPL_TYPE_SHOCK
