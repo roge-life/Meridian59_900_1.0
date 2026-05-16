@@ -56,6 +56,13 @@ systemctl daemon-reload
 systemctl enable blakserv
 REMOTE
 
+echo "==> Saving game state before restart"
+ssh -o StrictHostKeyChecking=no "root@$GAME_HOST" \
+    'curl -sf -X POST http://127.0.0.1:9999/execute \
+        -H "Content-Type: application/json" \
+        -d "{\"command\":\"save game\"}" && sleep 5' \
+    || echo "WARNING: save game failed or bridge not running — proceeding anyway"
+
 echo "==> Syncing game files to $GAME_HOST"
 rsync -rlpt --delete \
     --exclude '*.exe' --exclude '*.pdb' --exclude '*.dll' \
