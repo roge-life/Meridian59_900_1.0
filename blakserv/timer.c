@@ -395,6 +395,9 @@ void ServiceTimers(void)
 
    for(;;)
    {
+      if (g_shutdown_requested)
+         SetQuit();
+
       if (numActiveTimers == 0)
          ms = 500;
       else

@@ -13,6 +13,9 @@
 #ifndef _INTRLOCK_H
 #define _INTRLOCK_H
 
+#include <signal.h>
+extern volatile sig_atomic_t g_shutdown_requested;
+
 void InitInterfaceLocks(void);
 
 void EnterServerLock(void);

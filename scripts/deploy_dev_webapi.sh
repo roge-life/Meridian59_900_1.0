@@ -39,15 +39,19 @@ apt-get install -y mariadb-server mariadb-client python3-pip python3-venv python
 
 systemctl enable --now mariadb
 
-# portal DB + user
+# portal DB + user (grant both socket 'localhost' and TCP '127.0.0.1' since pymysql uses TCP)
 mysql -e "CREATE DATABASE IF NOT EXISTS m59_web CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -e "CREATE USER IF NOT EXISTS 'm59api'@'localhost' IDENTIFIED BY '\$DB_PASSWORD';"
 mysql -e "GRANT ALL PRIVILEGES ON m59_web.* TO 'm59api'@'localhost';"
+mysql -e "CREATE USER IF NOT EXISTS 'm59api'@'127.0.0.1' IDENTIFIED BY '\$DB_PASSWORD';"
+mysql -e "GRANT ALL PRIVILEGES ON m59_web.* TO 'm59api'@'127.0.0.1';"
 
 # blakserv analytics DB + read-only user (blakserv writes here; admin panel reads it)
 mysql -e "CREATE DATABASE IF NOT EXISTS blakserv CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -e "CREATE USER IF NOT EXISTS 'm59reader'@'localhost' IDENTIFIED BY 'm59read_pass';"
 mysql -e "GRANT SELECT ON blakserv.* TO 'm59reader'@'localhost';"
+mysql -e "CREATE USER IF NOT EXISTS 'm59reader'@'127.0.0.1' IDENTIFIED BY 'm59read_pass';"
+mysql -e "GRANT SELECT ON blakserv.* TO 'm59reader'@'127.0.0.1';"
 mysql -e "FLUSH PRIVILEGES;"
 
 if [ -d /opt/m59-account-api/.git ]; then

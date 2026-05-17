@@ -21,9 +21,11 @@
 #include "blakserv.h"
 #include <signal.h>
 
+volatile sig_atomic_t g_shutdown_requested = 0;
+
 static void HandleShutdownSignal(int sig)
 {
-   SetQuit();
+   g_shutdown_requested = 1;
 }
 
 int MainServer(int argc, char** argv)
