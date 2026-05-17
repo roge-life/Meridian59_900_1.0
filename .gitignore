@@ -221,3 +221,4 @@ pip-log.txt
 *.backup1
 *.backup2
 *.backup3
+.claude/
