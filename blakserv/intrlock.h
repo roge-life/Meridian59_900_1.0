@@ -13,8 +13,10 @@
 #ifndef _INTRLOCK_H
 #define _INTRLOCK_H
 
+#ifdef BLAK_PLATFORM_LINUX
 #include <signal.h>
 extern volatile sig_atomic_t g_shutdown_requested;
+#endif
 
 void InitInterfaceLocks(void);
 

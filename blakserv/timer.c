@@ -395,8 +395,10 @@ void ServiceTimers(void)
 
    for(;;)
    {
+#ifdef BLAK_PLATFORM_LINUX
       if (g_shutdown_requested)
          SetQuit();
+#endif
 
       if (numActiveTimers == 0)
          ms = 500;
