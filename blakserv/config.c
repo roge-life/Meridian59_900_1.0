@@ -645,6 +645,9 @@ void LoadConfig(void)
       current_group = -1;
       while (fgets(line,MAX_CONFIG_LINE,configfile))
       {
+         int len = strlen(line);
+         while (len > 0 && (line[len-1] == '\r' || line[len-1] == '\n'))
+            line[--len] = '\0';
 	 current_group = LoadConfigLine(line,lineno,CONFIG_FILE,current_group);
 	 lineno++;
       }

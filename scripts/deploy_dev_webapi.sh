@@ -46,12 +46,17 @@ mysql -e "GRANT ALL PRIVILEGES ON m59_web.* TO 'm59api'@'localhost';"
 mysql -e "CREATE USER IF NOT EXISTS 'm59api'@'127.0.0.1' IDENTIFIED BY '\$DB_PASSWORD';"
 mysql -e "GRANT ALL PRIVILEGES ON m59_web.* TO 'm59api'@'127.0.0.1';"
 
-# blakserv analytics DB + read-only user (blakserv writes here; admin panel reads it)
+# blakserv analytics DB: read-only user for webapi, write user for game server
 mysql -e "CREATE DATABASE IF NOT EXISTS blakserv CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 mysql -e "CREATE USER IF NOT EXISTS 'm59reader'@'localhost' IDENTIFIED BY 'm59read_pass';"
 mysql -e "GRANT SELECT ON blakserv.* TO 'm59reader'@'localhost';"
 mysql -e "CREATE USER IF NOT EXISTS 'm59reader'@'127.0.0.1' IDENTIFIED BY 'm59read_pass';"
 mysql -e "GRANT SELECT ON blakserv.* TO 'm59reader'@'127.0.0.1';"
+# blakserv game server writes analytics; grant from its private and public IPs
+mysql -e "CREATE USER IF NOT EXISTS 'blakserv'@'$GAME_SERVER_IP' IDENTIFIED BY 'blaks3kr1t';"
+mysql -e "GRANT ALL PRIVILEGES ON blakserv.* TO 'blakserv'@'$GAME_SERVER_IP';"
+mysql -e "CREATE USER IF NOT EXISTS 'blakserv'@'10.108.0.5' IDENTIFIED BY 'blaks3kr1t';"
+mysql -e "GRANT ALL PRIVILEGES ON blakserv.* TO 'blakserv'@'10.108.0.5';"
 mysql -e "FLUSH PRIVILEGES;"
 
 if [ -d /opt/m59-account-api/.git ]; then
