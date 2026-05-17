@@ -82,6 +82,17 @@ ssh -o StrictHostKeyChecking=no "root@$GAME_HOST" bash -s <<REMOTE
 sed -i 's/^Enabled.*/Enabled     Yes/' /opt/meridian59/blakserv.cfg
 sed -i 's/^Host.*/Host        $DB_HOST/' /opt/meridian59/blakserv.cfg
 grep -A5 '\[MySQL\]' /opt/meridian59/blakserv.cfg
+
+# Patch the [Update] section so clients know where to fetch updates
+# and set MinClassicVersion to force-patch older clients
+sed -i 's/^MinClassicVersion.*/MinClassicVersion    5066/' /opt/meridian59/blakserv.cfg
+sed -i 's/^DownloadReason.*/DownloadReason       <An update is available. Your client will now update.>/' /opt/meridian59/blakserv.cfg
+sed -i 's/^ClassicPatchHost.*/ClassicPatchHost     dev.emfiftynine.info/' /opt/meridian59/blakserv.cfg
+sed -i 's/^ClassicPatchPath.*/ClassicPatchPath     \/patch/' /opt/meridian59/blakserv.cfg
+sed -i 's/^ClassicPatchCachePath.*/ClassicPatchCachePath \/patch\//' /opt/meridian59/blakserv.cfg
+sed -i 's/^ClassicPatchTxt.*/ClassicPatchTxt      patchinfo.txt/' /opt/meridian59/blakserv.cfg
+sed -i 's/^ClassicClubExe.*/ClassicClubExe       club.exe/' /opt/meridian59/blakserv.cfg
+grep -A8 '\[Update\]' /opt/meridian59/blakserv.cfg
 REMOTE
 
 echo "==> Fixing permissions and starting blakserv"

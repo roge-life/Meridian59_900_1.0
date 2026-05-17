@@ -364,15 +364,9 @@ void MainResize(HWND hwnd, UINT resize_flag, int xsize, int ysize)
 /****************************************************************************/
 void MainMinMaxInfo(HWND hwnd, MINMAXINFO *lpmmi)
 {
-	SIZE s;
-	
 	/* Set minimum size of window */
 	lpmmi->ptMinTrackSize.x = MIN_WINDOW_WIDTH;
 	lpmmi->ptMinTrackSize.y = MIN_WINDOW_HEIGHT;
-	
-	InterfaceGetMaxSize(&s);
-	lpmmi->ptMaxTrackSize.x = s.cx;
-	lpmmi->ptMaxTrackSize.y = s.cy;
 }
 /****************************************************************************/
 void MainSetFocus(HWND hwnd, HWND hwndOldFocus)

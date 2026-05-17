@@ -110,12 +110,20 @@ systemctl daemon-reload
 systemctl enable m59-webapi
 systemctl restart m59-webapi
 
+# Patch file hosting directory (served statically, populated by deploy_dev_patch.sh)
+mkdir -p /opt/m59-patch
+
 rm -f /etc/nginx/sites-enabled/default
 if [ ! -f /etc/nginx/sites-available/m59-webapi ]; then
     cat > /etc/nginx/sites-available/m59-webapi <<NGINXEOF
 server {
     listen 80;
     server_name \$DOMAIN;
+
+    location /patch/ {
+        alias /opt/m59-patch/;
+        autoindex off;
+    }
 
     location / {
         proxy_pass http://127.0.0.1:8000;
