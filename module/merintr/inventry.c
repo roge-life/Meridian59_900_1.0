@@ -230,25 +230,21 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
 {
    int old_cols = cols;
    int old_rows = rows;
-
-   int yMiniMap, iHeightAvailableForMapAndStats, iHeightMiniMap;
+   AREA minimap;
+   int minimap_top;
 
    /* Turn off highlight */
    DrawBorder(&inventory_area, inventory_bg_index, NULL);
-   
+
    inventory_area.x = view->x + view->cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
    inventory_area.cx = min(xsize - inventory_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
 
-//   inventory_area.y = 2 * TOP_BORDER + USERAREA_HEIGHT + GROUPBUTTONS_HEIGHT + EDGETREAT_HEIGHT;
-//   inventory_area.cy = view->y + view->cy - inventory_area.y;
-
-   	yMiniMap = 2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT + MAPTREAT_HEIGHT;
-	iHeightAvailableForMapAndStats = ysize - yMiniMap - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-	iHeightMiniMap = (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
-	iHeightMiniMap = min( iHeightMiniMap, MINIMAP_MAX_HEIGHT );
-
-	inventory_area.y = yMiniMap + iHeightMiniMap + 3 * HIGHLIGHT_THICKNESS + MAPTREAT_HEIGHT + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
-	inventory_area.cy = ysize - EDGETREAT_HEIGHT - HIGHLIGHT_THICKNESS - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
+   CopyCurrentAreaMiniMap(&minimap);
+   // Inventory starts just below UserArea + the tab buttons, ends just above minimap.
+   inventory_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT
+      + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
+   minimap_top = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT - 3 * HIGHLIGHT_THICKNESS;
+   inventory_area.cy = minimap_top - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
 
    InventoryComputeRowsCols();
 

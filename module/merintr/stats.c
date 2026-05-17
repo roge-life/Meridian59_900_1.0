@@ -136,22 +136,20 @@ void StatsDestroy(void)
  */
 void StatsResize(int xsize, int ysize, AREA *view)
 {
-   int yMiniMap, iHeightAvailableForMapAndStats, iHeightMiniMap;
+   AREA minimap;
+   CopyCurrentAreaMiniMap(&minimap);
 
    stats_area.x = view->x + view->cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
    stats_area.cx = min(xsize - stats_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
 
-   yMiniMap = 2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT + MAPTREAT_HEIGHT;
-   iHeightAvailableForMapAndStats = ysize - yMiniMap - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-   iHeightMiniMap = (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
-   iHeightMiniMap = min( iHeightMiniMap, MINIMAP_MAX_HEIGHT );
-   
-   stats_area.y = yMiniMap + iHeightMiniMap + 3 * HIGHLIGHT_THICKNESS + MAPTREAT_HEIGHT + MAP_STATS_GAP_HEIGHT;
-   stats_area.cy = ysize - EDGETREAT_HEIGHT - HIGHLIGHT_THICKNESS - stats_area.y - STATS_BOTTOM_GAP_HEIGHT;
-   
+   // Stats area spans from just below UserArea down to just above the minimap.
+   stats_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + MAP_STATS_GAP_HEIGHT;
+   stats_area.cy = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT
+      - 3 * HIGHLIGHT_THICKNESS - stats_area.y;
+
    MoveWindow(hStats, stats_area.x, stats_area.y, stats_area.cx, stats_area.cy, FALSE);
    ShowWindow(hStats, SW_SHOWNORMAL);
-   
+
    StatsMoveButtons();
    StatsMove();
 }

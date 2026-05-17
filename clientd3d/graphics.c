@@ -242,15 +242,14 @@ void GraphicsAreaResize(int xsize, int ysize)
    areaMiniMap.x	= view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
    areaMiniMap.cx	= min( xsize - areaMiniMap.x - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH - MAPTREAT_WIDTH, MINIMAP_MAX_WIDTH );
 
-   areaMiniMap.y	= 2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT + (MAPTREAT_HEIGHT * 2) - 1;
+   // Size minimap proportionally to the right panel height (below UserArea), cap at max.
+   iHeightAvailableForMapAndStats = ysize - (2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT)
+      - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
+   areaMiniMap.cy = (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
+   areaMiniMap.cy = min( areaMiniMap.cy, MINIMAP_MAX_HEIGHT );
 
-   iHeightAvailableForMapAndStats = ysize - areaMiniMap.y - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-
-   areaMiniMap.cy	= (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
-   areaMiniMap.cy	= min( areaMiniMap.cy, MINIMAP_MAX_HEIGHT );
-
-   areaMiniMap.cy -= (TOOLBAR_BUTTON_HEIGHT + TOOLBAR_SEPARATOR_WIDTH) * 2;
-   areaMiniMap.y += (TOOLBAR_BUTTON_HEIGHT + TOOLBAR_SEPARATOR_WIDTH) * 2;
+   // Anchor minimap to the bottom-right of the window.
+   areaMiniMap.y = ysize - areaMiniMap.cy - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT - MAPTREAT_HEIGHT;
 
    MapMiniSizeChanged(&areaMiniMap);
 
