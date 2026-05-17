@@ -65,12 +65,33 @@ SH
 
 copy_resources() {
     local dest="$1"
+    
+    mkdir -p "$dest/Resources"
+    # Only copy TUI-relevant resources, not the heavy 3D assets/textures
+    for folder in ui sounds-crushed music-crushed; do
+        [ -d "$SRC_ROOT/Resources/$folder" ] && cp -r "$SRC_ROOT/Resources/$folder" "$dest/Resources/"
+    done
+    
     cd "$BIN_DIR"
-    cp -r Resources/strings Resources/rooms Resources/mails "$dest/"
+    # strings, rooms, mails live at bin/ level for testing but we put them in root for distro
+    [ -d "strings" ] && cp -r strings "$dest/"
+    [ -d "rooms" ]   && cp -r rooms "$dest/"
+    [ -d "mails" ]   && cp -r mails "$dest/"
     for f in *.script vic.json viclr.json vicwalk.json survival.json; do
         [ -e "$f" ] && cp "$f" "$dest/" || true
     done
 }
+
+copy_bass() {
+    local dest="$1" platform="$2"
+    local bass_src="$SRC_ROOT/Meridian59.TuiClient"
+    case "$platform" in
+        win*)    [ -f "$bass_src/bass.dll" ]       && cp "$bass_src/bass.dll"       "$dest/" ;;
+        osx*)    [ -f "$bass_src/libbass.dylib" ]  && cp "$bass_src/libbass.dylib"  "$dest/" ;;
+        linux*)  [ -f "$bass_src/libbass.so" ]     && cp "$bass_src/libbass.so"     "$dest/" ;;
+    esac
+}
+
 
 echo "==> Assembling per-platform zips..."
 mkdir -p "$DISTRO"
@@ -86,6 +107,7 @@ cat > "$STAGE_WIN/launch.bat" << 'BAT'
 Meridian59.TuiClient.exe
 BAT
 copy_resources "$STAGE_WIN"
+copy_bass "$STAGE_WIN" win
 OUT_WIN="$DISTRO/meridian59-tuiclient-windows.zip"
 rm -f "$OUT_WIN" && cd "$STAGE_WIN" && zip -qr "$OUT_WIN" .
 SIZE_WIN=$(du -sh "$OUT_WIN" | cut -f1)
@@ -99,6 +121,7 @@ cp "$BUILD_MAC/Meridian59.TuiClient.dll.config" "$STAGE_MAC/"
 cp "$BUILD_MAC/configuration.xml"               "$STAGE_MAC/"
 make_launch_sh "$STAGE_MAC"
 copy_resources "$STAGE_MAC"
+copy_bass "$STAGE_MAC" osx
 OUT_MAC="$DISTRO/meridian59-tuiclient-macos-arm64.zip"
 rm -f "$OUT_MAC" && cd "$STAGE_MAC" && zip -qr "$OUT_MAC" .
 SIZE_MAC=$(du -sh "$OUT_MAC" | cut -f1)
@@ -112,6 +135,7 @@ cp "$BUILD_LIN/Meridian59.TuiClient.dll.config" "$STAGE_LIN/"
 cp "$BUILD_LIN/configuration.xml"               "$STAGE_LIN/"
 make_launch_sh "$STAGE_LIN"
 copy_resources "$STAGE_LIN"
+copy_bass "$STAGE_LIN" linux
 OUT_LIN="$DISTRO/meridian59-tuiclient-linux-x64.zip"
 rm -f "$OUT_LIN" && cd "$STAGE_LIN" && zip -qr "$OUT_LIN" .
 SIZE_LIN=$(du -sh "$OUT_LIN" | cut -f1)
@@ -125,6 +149,7 @@ cp "$BUILD_ARM/Meridian59.TuiClient.dll.config" "$STAGE_ARM/"
 cp "$BUILD_ARM/configuration.xml"               "$STAGE_ARM/"
 make_launch_sh "$STAGE_ARM"
 copy_resources "$STAGE_ARM"
+copy_bass "$STAGE_ARM" linux
 OUT_ARM="$DISTRO/meridian59-tuiclient-linux-aarch64.zip"
 rm -f "$OUT_ARM" && cd "$STAGE_ARM" && zip -qr "$OUT_ARM" .
 SIZE_ARM=$(du -sh "$OUT_ARM" | cut -f1)
@@ -138,30 +163,12 @@ deploy() {
     local STATIC="/opt/m59-account-api/static"
     local HTML="$STATIC/index.html"
 
-    echo "==> Uploading zips..."
+    echo "==> Uploading zips and patch script..."
     scp "$OUT_WIN" "$OUT_MAC" "$OUT_LIN" "$OUT_ARM" "$REMOTE:$STATIC/"
+    scp "$SCRIPT_DIR/../webapi/patch_sizes.py" "$REMOTE:/opt/m59-account-api/patch_sizes.py"
 
     echo "==> Updating filesizes in index.html..."
-    ssh "$REMOTE" "python3 - << 'PYEOF'
-import re
-with open('$HTML', 'r') as f:
-    html = f.read()
-# Update data-size-* attributes
-html = re.sub(r'data-size-windows=\"[^\"]*\"',      'data-size-windows=\"$SIZE_WIN\"',      html)
-html = re.sub(r'data-size-macos=\"[^\"]*\"',        'data-size-macos=\"$SIZE_MAC\"',        html)
-html = re.sub(r'data-size-linux-x64=\"[^\"]*\"',    'data-size-linux-x64=\"$SIZE_LIN\"',    html)
-html = re.sub(r'data-size-linux-aarch64=\"[^\"]*\"','data-size-linux-aarch64=\"$SIZE_ARM\"',html)
-# Update visible label spans
-html = re.sub(r'(<span class=\"opacity-50\" data-label-windows>)[^<]*(</span>)',      r'\g<1>$SIZE_WIN\g<2>',  html)
-html = re.sub(r'(<span class=\"opacity-50\" data-label-macos>)[^<]*(</span>)',        r'\g<1>$SIZE_MAC\g<2>',  html)
-html = re.sub(r'(<span class=\"opacity-50\" data-label-linux-x64>)[^<]*(</span>)',    r'\g<1>$SIZE_LIN\g<2>',  html)
-html = re.sub(r'(<span class=\"opacity-50\" data-label-linux-aarch64>)[^<]*(</span>)',r'\g<1>$SIZE_ARM\g<2>',  html)
-with open('$HTML', 'w') as f:
-    f.write(html)
-print('Sizes patched.')
-PYEOF
-"
-
+    ssh "$REMOTE" "python3 /opt/m59-account-api/patch_sizes.py $SIZE_WIN $SIZE_MAC $SIZE_LIN $SIZE_ARM" 
     echo "==> Shipped."
     echo "    windows:       $SIZE_WIN"
     echo "    macos-arm64:   $SIZE_MAC"
