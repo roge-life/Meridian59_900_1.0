@@ -44,9 +44,9 @@
 #define INVENTORY_MIN_WIDTH (185 + LEFT_BORDER + 67)
 #define INVENTORY_MAX_WIDTH (250 + LEFT_BORDER)
 
-//	MiniMap area.
-#define MINIMAP_MAX_WIDTH	( INVENTORY_MAX_WIDTH + 3 ) & ~3
-#define MINIMAP_MAX_HEIGHT	MINIMAP_MAX_WIDTH
+//	MiniMap area — large enough to fill the right panel at 4K with 2x game view.
+#define MINIMAP_MAX_WIDTH	1024
+#define MINIMAP_MAX_HEIGHT	1024
 
 //	How much of the minimap/stats box area goes to the minimap.
 #define PROPORTION_MINIMAP		.4
