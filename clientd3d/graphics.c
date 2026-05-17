@@ -13,8 +13,18 @@
 
 #include "client.h"
 
-//	Duplicate of what is in merint\userarea.h.
-#define USERAREA_HEIGHT 64
+//	Duplicates of module constants not accessible from clientd3d.
+#define USERAREA_HEIGHT 64   // merintr/userarea.h
+#define ENCHANT_SIZE    20   // merintr/enchant.h
+#define ENCHANT_BORDER   1   // merintr/enchant.h
+
+// Bottom y of the personal enchantments strip — where the map+stats panel begins.
+// = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER
+//   + MAPTREAT_HEIGHT + 2*(ENCHANT_SIZE+ENCHANT_BORDER)
+// = 5 + 16 + 64 + 1 + 5 + 42 = 133
+#define ENCHANT_STRIP_BOTTOM \
+   (TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER \
+    + MAPTREAT_HEIGHT + 2 * (ENCHANT_SIZE + ENCHANT_BORDER))
 
 extern AREA	gD3DView;
 extern Bool				gD3DRedrawAll;
@@ -200,8 +210,6 @@ void GraphicsAreaResize(int xsize, int ysize)
    int max_width, max_height;
    int stretchfactor = config.large_area ? 2 : 1;
 
-   int iHeightAvailableForMapAndStats;
-
    max_width  = stretchfactor * MAXX;
    max_height = stretchfactor * MAXY;
 
@@ -238,18 +246,36 @@ void GraphicsAreaResize(int xsize, int ysize)
 
    D3DRenderResizeDisplay(view.x, view.y, view.cx, view.cy);
 
-   // Minimap: size proportionally, right-align to bottom-right corner of window.
-   int min_map_x  = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
+   // Right-panel geometry.
+   int min_map_x   = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
    int map_rmargin = 2 * HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH + MAPTREAT_WIDTH;
+   int game_bottom = view.y + view.cy;   // bottom of the 3D view — minimap must not exceed this
 
-   iHeightAvailableForMapAndStats = ysize - (2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT)
-      - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-   areaMiniMap.cy = (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
-   areaMiniMap.cy = min( areaMiniMap.cy, MINIMAP_MAX_HEIGHT );
+   // Stats column geometry (mirrors stats.c / inventry.c).
+   int stats_x  = view.x + view.cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
+   int stats_cx = min(xsize - stats_x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
 
-   areaMiniMap.cx = min( xsize - min_map_x - map_rmargin, MINIMAP_MAX_WIDTH );
-   areaMiniMap.x  = max( min_map_x, xsize - areaMiniMap.cx - map_rmargin );
-   areaMiniMap.y  = ysize - areaMiniMap.cy - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT - MAPTREAT_HEIGHT;
+   // Space available to the right of the stats column for a side-by-side minimap.
+   int mini_avail_cx = xsize - (stats_x + stats_cx + MAP_STATS_GAP_HEIGHT) - map_rmargin;
+
+   if (mini_avail_cx >= 80)
+   {
+      // Side-by-side: minimap fills right portion of the right panel,
+      // from the enchantments strip down to the game-view bottom.
+      areaMiniMap.x  = stats_x + stats_cx + MAP_STATS_GAP_HEIGHT;
+      areaMiniMap.cx = min(mini_avail_cx, MINIMAP_MAX_WIDTH);
+      areaMiniMap.y  = ENCHANT_STRIP_BOTTOM;
+      areaMiniMap.cy = min(game_bottom - ENCHANT_STRIP_BOTTOM - MAPTREAT_HEIGHT, MINIMAP_MAX_HEIGHT);
+   }
+   else
+   {
+      // Stacked: minimap sits below stats, anchored to the game-view bottom.
+      areaMiniMap.cx = min(xsize - min_map_x - map_rmargin, MINIMAP_MAX_WIDTH);
+      areaMiniMap.x  = max(min_map_x, xsize - areaMiniMap.cx - map_rmargin);
+      int avail_h    = game_bottom - ENCHANT_STRIP_BOTTOM;
+      areaMiniMap.cy = min((int)(avail_h * PROPORTION_MINIMAP) - MAPTREAT_HEIGHT, MINIMAP_MAX_HEIGHT);
+      areaMiniMap.y  = game_bottom - areaMiniMap.cy - MAPTREAT_HEIGHT;
+   }
 
    MapMiniSizeChanged(&areaMiniMap);
 
