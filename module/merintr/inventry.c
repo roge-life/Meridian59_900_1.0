@@ -240,11 +240,17 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
    inventory_area.cx = min(xsize - inventory_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
 
    CopyCurrentAreaMiniMap(&minimap);
-   // Inventory starts just below UserArea + the tab buttons, ends just above minimap.
-   inventory_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT
-      + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
-   minimap_top = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT - 3 * HIGHLIGHT_THICKNESS;
-   inventory_area.cy = minimap_top - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
+   // Start below enchantments area + group buttons.
+   inventory_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER + MAPTREAT_HEIGHT
+      + (ENCHANT_SIZE + ENCHANT_BORDER) * 2 + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
+   // If minimap shares our column, end above it; otherwise fill to window bottom.
+   if (minimap.x < inventory_area.x + inventory_area.cx) {
+      minimap_top = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT - 3 * HIGHLIGHT_THICKNESS;
+      inventory_area.cy = minimap_top - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
+   } else {
+      inventory_area.cy = ysize - EDGETREAT_HEIGHT - HIGHLIGHT_THICKNESS
+         - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
+   }
 
    InventoryComputeRowsCols();
 

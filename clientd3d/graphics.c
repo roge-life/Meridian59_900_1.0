@@ -238,18 +238,18 @@ void GraphicsAreaResize(int xsize, int ysize)
 
    D3DRenderResizeDisplay(view.x, view.y, view.cx, view.cy);
 
-   //	areaMiniMap added by ajw.
-   areaMiniMap.x	= view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
-   areaMiniMap.cx	= min( xsize - areaMiniMap.x - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH - MAPTREAT_WIDTH, MINIMAP_MAX_WIDTH );
+   // Minimap: size proportionally, right-align to bottom-right corner of window.
+   int min_map_x  = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
+   int map_rmargin = 2 * HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH + MAPTREAT_WIDTH;
 
-   // Size minimap proportionally to the right panel height (below UserArea), cap at max.
    iHeightAvailableForMapAndStats = ysize - (2 * TOP_BORDER + USERAREA_HEIGHT + EDGETREAT_HEIGHT)
       - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
    areaMiniMap.cy = (int)( iHeightAvailableForMapAndStats * PROPORTION_MINIMAP ) - HIGHLIGHT_THICKNESS - MAPTREAT_HEIGHT;
    areaMiniMap.cy = min( areaMiniMap.cy, MINIMAP_MAX_HEIGHT );
 
-   // Anchor minimap to the bottom-right of the window.
-   areaMiniMap.y = ysize - areaMiniMap.cy - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT - MAPTREAT_HEIGHT;
+   areaMiniMap.cx = min( xsize - min_map_x - map_rmargin, MINIMAP_MAX_WIDTH );
+   areaMiniMap.x  = max( min_map_x, xsize - areaMiniMap.cx - map_rmargin );
+   areaMiniMap.y  = ysize - areaMiniMap.cy - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT - MAPTREAT_HEIGHT;
 
    MapMiniSizeChanged(&areaMiniMap);
 

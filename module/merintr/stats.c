@@ -142,10 +142,17 @@ void StatsResize(int xsize, int ysize, AREA *view)
    stats_area.x = view->x + view->cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
    stats_area.cx = min(xsize - stats_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
 
-   // Stats area spans from just below UserArea down to just above the minimap.
-   stats_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + MAP_STATS_GAP_HEIGHT;
-   stats_area.cy = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT
-      - 3 * HIGHLIGHT_THICKNESS - stats_area.y;
+   // Start below the personal enchantments area.
+   stats_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER + MAPTREAT_HEIGHT
+      + (ENCHANT_SIZE + ENCHANT_BORDER) * 2 + MAP_STATS_GAP_HEIGHT;
+
+   // If minimap shares our column, end above it; otherwise fill to window bottom.
+   if (minimap.x < stats_area.x + stats_area.cx)
+      stats_area.cy = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT
+         - 3 * HIGHLIGHT_THICKNESS - stats_area.y;
+   else
+      stats_area.cy = ysize - EDGETREAT_HEIGHT - HIGHLIGHT_THICKNESS
+         - stats_area.y - STATS_BOTTOM_GAP_HEIGHT;
 
    MoveWindow(hStats, stats_area.x, stats_area.y, stats_area.cx, stats_area.cy, FALSE);
    ShowWindow(hStats, SW_SHOWNORMAL);
