@@ -134,11 +134,74 @@ server {
     }
 }
 NGINXEOF
-    echo "==> Fresh nginx config written. Run certbot once DNS is live:"
-    echo "    certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect"
+    echo "==> Fresh nginx config written. After DNS is live, enable HTTPS with:"
+    echo "    1. certbot --nginx -d \$DOMAIN --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect"
+    echo "    2. Fix HTTP /patch/ location (certbot --nginx replaces the port-80 block and drops it):"
+    echo "       python3 /opt/m59-patch-nginx-fix.py  # see deploy_dev_webapi.sh for the script"
 else
     echo "==> nginx config already exists, leaving it untouched"
 fi
+
+# Write a helper script on the server to re-add /patch/ to the HTTP block after certbot.
+# club.exe (the client patcher) uses WinInet plain HTTP and cannot follow HTTPS redirects,
+# so /patch/ must be served on port 80 directly, not via the HTTPS redirect.
+cat > /opt/m59-patch-nginx-fix.py <<'PYFIXEOF'
+#!/usr/bin/env python3
+"""Re-add /patch/ location to the HTTP (port 80) nginx server block.
+
+Run this once after certbot --nginx rewrites the port-80 block to a plain redirect.
+certbot drops the /patch/ alias from port 80, breaking club.exe (the Meridian 59
+client patcher) which uses plain WinInet HTTP and cannot follow HTTPS redirects.
+"""
+import re, sys
+
+path = "/etc/nginx/sites-enabled/m59-webapi"
+with open(path) as f:
+    config = f.read()
+
+patch_location = (
+    "\n    # Serve patch files over plain HTTP — club.exe uses WinInet HTTP, not HTTPS\n"
+    "    location /patch/ {\n"
+    "        alias /opt/m59-patch/;\n"
+    "        autoindex off;\n"
+    "    }\n"
+)
+
+# Find the port-80 server block (the certbot-managed redirect block).
+# Certbot writes it as: server { if ($host = ...) { return 301 ...; } listen 80; ... }
+# We want to inject the /patch/ location before the closing brace.
+# Strategy: replace 'location / { return 301' with the patch location + that pattern.
+if "location /patch/" in config:
+    print("Already has /patch/ in config — no changes needed.")
+    sys.exit(0)
+
+# Insert patch location before the first 'location /' in the port-80 server block.
+# The port-80 block is identified by 'listen 80;'.
+new_config = re.sub(
+    r'(server \{[^}]*listen 80;[^}]*?\}[^}]*?)(location / \{)',
+    r'\1' + patch_location.replace("\\", "\\\\") + r'location / {',
+    config,
+    count=1,
+    flags=re.DOTALL
+)
+
+if new_config == config:
+    print("ERROR: could not find insertion point — check nginx config manually", file=sys.stderr)
+    sys.exit(1)
+
+with open(path, "w") as f:
+    f.write(new_config)
+
+import subprocess
+result = subprocess.run(["nginx", "-t"], capture_output=True, text=True)
+if result.returncode != 0:
+    print("ERROR: nginx config test failed:\n" + result.stderr, file=sys.stderr)
+    sys.exit(1)
+
+subprocess.run(["systemctl", "reload", "nginx"], check=True)
+print("Done — /patch/ now served over HTTP on port 80.")
+PYFIXEOF
+chmod +x /opt/m59-patch-nginx-fix.py
 
 ln -sf /etc/nginx/sites-available/m59-webapi /etc/nginx/sites-enabled/
 nginx -t && systemctl enable --now nginx && systemctl reload nginx
@@ -147,4 +210,4 @@ systemctl status m59-webapi --no-pager
 REMOTE
 
 echo "==> Web API deploy complete"
-echo "==> Enable HTTPS: ssh root@$WEB_HOST 'certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m joel.palmtag@gmail.com'"
+echo "==> Enable HTTPS: ssh root@$WEB_HOST 'certbot --nginx -d $DOMAIN --non-interactive --agree-tos -m joel.palmtag@gmail.com --redirect && python3 /opt/m59-patch-nginx-fix.py'"
