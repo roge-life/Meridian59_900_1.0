@@ -83,16 +83,43 @@ sed -i 's/^Enabled.*/Enabled     Yes/' /opt/meridian59/blakserv.cfg
 sed -i 's/^Host.*/Host        $DB_HOST/' /opt/meridian59/blakserv.cfg
 grep -A5 '\[MySQL\]' /opt/meridian59/blakserv.cfg
 
-# Patch the [Update] section so clients know where to fetch updates
-# and set MinClassicVersion to force-patch older clients
-sed -i 's/^MinClassicVersion.*/MinClassicVersion    5066/' /opt/meridian59/blakserv.cfg
-sed -i 's/^DownloadReason.*/DownloadReason       <An update is available. Your client will now update.>/' /opt/meridian59/blakserv.cfg
-sed -i 's/^ClassicPatchHost.*/ClassicPatchHost     dev.emfiftynine.info/' /opt/meridian59/blakserv.cfg
-sed -i 's/^ClassicPatchPath.*/ClassicPatchPath     \/patch/' /opt/meridian59/blakserv.cfg
-sed -i 's/^ClassicPatchCachePath.*/ClassicPatchCachePath \/patch\//' /opt/meridian59/blakserv.cfg
-sed -i 's/^ClassicPatchTxt.*/ClassicPatchTxt      patchinfo.txt/' /opt/meridian59/blakserv.cfg
-sed -i 's/^ClassicClubExe.*/ClassicClubExe       club.exe/' /opt/meridian59/blakserv.cfg
+# Patch [Login] MinClassicVersion and [Update] section using Python so we
+# can insert keys that don't exist in the artifact's blank section.
+python3 - <<'PYEOF'
+import re
+
+with open('/opt/meridian59/blakserv.cfg', 'rb') as f:
+    raw = f.read()
+
+# Work in text (strip \r so regex is simple, we'll write LF-only which the parser handles)
+text = raw.decode('utf-8', errors='replace').replace('\r\n', '\n').replace('\r', '\n')
+
+# Patch [Login] MinClassicVersion (replace existing or append inside section)
+if re.search(r'^MinClassicVersion', text, re.MULTILINE):
+    text = re.sub(r'^MinClassicVersion.*', 'MinClassicVersion    5066', text, flags=re.MULTILINE)
+else:
+    text = re.sub(r'(\[Login\][^\[]*)', r'\1MinClassicVersion    5066\n', text, flags=re.DOTALL)
+
+# Replace entire [Update] section content (everything between [Update] and next [Section])
+update_block = (
+    "[Update]\n"
+    "DownloadReason       <An update is available. Your client will now update.>\n"
+    "ClassicPatchHost     dev.emfiftynine.info\n"
+    "ClassicPatchPath     /patch\n"
+    "ClassicPatchCachePath /patch/\n"
+    "ClassicPatchTxt      patchinfo.txt\n"
+    "ClassicClubExe       club.exe\n"
+)
+text = re.sub(r'\[Update\][^\[]*', update_block, text, flags=re.DOTALL)
+
+with open('/opt/meridian59/blakserv.cfg', 'w', newline='\n') as f:
+    f.write(text)
+
+print("Config patched OK")
+PYEOF
+
 grep -A8 '\[Update\]' /opt/meridian59/blakserv.cfg
+grep 'MinClassicVersion' /opt/meridian59/blakserv.cfg
 REMOTE
 
 echo "==> Fixing permissions and starting blakserv"
