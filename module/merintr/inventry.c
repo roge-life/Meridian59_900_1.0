@@ -244,13 +244,13 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
    inventory_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER + MAPTREAT_HEIGHT
       + (ENCHANT_SIZE + ENCHANT_BORDER) * 2 + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
    // If minimap shares our column (stacked), end just above it.
-   // Otherwise (side-by-side) fill to the game-view bottom, same as minimap.
+   // Otherwise (side-by-side) fill to the panel bottom (independent of game-view height).
    if (minimap.x < inventory_area.x + inventory_area.cx) {
       minimap_top = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT - 3 * HIGHLIGHT_THICKNESS;
       inventory_area.cy = minimap_top - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
    } else {
-      inventory_area.cy = view->y + view->cy - MAPTREAT_HEIGHT
-         - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
+      int panel_bottom = ysize - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
+      inventory_area.cy = panel_bottom - STATS_BOTTOM_GAP_HEIGHT - inventory_area.y;
    }
 
    InventoryComputeRowsCols();

@@ -247,9 +247,10 @@ void GraphicsAreaResize(int xsize, int ysize)
    D3DRenderResizeDisplay(view.x, view.y, view.cx, view.cy);
 
    // Right-panel geometry.
-   int min_map_x   = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
-   int map_rmargin = 2 * HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH + MAPTREAT_WIDTH;
-   int game_bottom = view.y + view.cy;   // bottom of the 3D view — minimap must not exceed this
+   int min_map_x    = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
+   int map_rmargin  = 2 * HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH + MAPTREAT_WIDTH;
+   // Bottom of the right panel — independent of the game view height.
+   int panel_bottom = ysize - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
 
    // Stats column geometry (mirrors stats.c / inventry.c).
    int stats_x  = view.x + view.cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
@@ -261,20 +262,20 @@ void GraphicsAreaResize(int xsize, int ysize)
    if (mini_avail_cx >= 80)
    {
       // Side-by-side: minimap fills right portion of the right panel,
-      // from the enchantments strip down to the game-view bottom.
+      // from the enchantments strip down to the panel bottom.
       areaMiniMap.x  = stats_x + stats_cx + MAP_STATS_GAP_HEIGHT;
       areaMiniMap.cx = min(mini_avail_cx, MINIMAP_MAX_WIDTH);
       areaMiniMap.y  = ENCHANT_STRIP_BOTTOM;
-      areaMiniMap.cy = min(game_bottom - ENCHANT_STRIP_BOTTOM - MAPTREAT_HEIGHT, MINIMAP_MAX_HEIGHT);
+      areaMiniMap.cy = min(panel_bottom - MAPTREAT_HEIGHT - ENCHANT_STRIP_BOTTOM, MINIMAP_MAX_HEIGHT);
    }
    else
    {
-      // Stacked: minimap sits below stats, anchored to the game-view bottom.
+      // Stacked: minimap anchored to panel bottom, stats fill above it.
       areaMiniMap.cx = min(xsize - min_map_x - map_rmargin, MINIMAP_MAX_WIDTH);
       areaMiniMap.x  = max(min_map_x, xsize - areaMiniMap.cx - map_rmargin);
-      int avail_h    = game_bottom - ENCHANT_STRIP_BOTTOM;
+      int avail_h    = panel_bottom - ENCHANT_STRIP_BOTTOM;
       areaMiniMap.cy = min((int)(avail_h * PROPORTION_MINIMAP) - MAPTREAT_HEIGHT, MINIMAP_MAX_HEIGHT);
-      areaMiniMap.y  = game_bottom - areaMiniMap.cy - MAPTREAT_HEIGHT;
+      areaMiniMap.y  = panel_bottom - areaMiniMap.cy - MAPTREAT_HEIGHT;
    }
 
    MapMiniSizeChanged(&areaMiniMap);
