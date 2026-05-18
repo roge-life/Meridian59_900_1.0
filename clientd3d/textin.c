@@ -68,14 +68,6 @@ static LRESULT CALLBACK ChatPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
       return 0;
    }
 
-   case WM_MOUSEMOVE:
-      PanelTrackHover(hwnd);
-      return 0;
-
-   case WM_MOUSELEAVE:
-      PanelLeaveHover(hwnd);
-      return 0;
-
    case WM_PAINT:
    {
       PAINTSTRUCT ps;
@@ -83,8 +75,6 @@ static LRESULT CALLBACK ChatPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, GetSysColorBrush(COLOR_WINDOW));
-      if (PanelIsHovered(hwnd))
-         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }

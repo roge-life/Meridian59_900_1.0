@@ -119,19 +119,9 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
-      if (PanelIsHovered(hwnd))
-         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }
-
-   case WM_MOUSEMOVE:
-      PanelTrackHover(hwnd);
-      return 0;
-
-   case WM_MOUSELEAVE:
-      PanelLeaveHover(hwnd);
-      return 0;
 
    case WM_ERASEBKGND:
       return 1;

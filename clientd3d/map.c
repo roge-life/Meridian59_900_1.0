@@ -816,14 +816,6 @@ static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       return 0;
    }
 
-   case WM_MOUSEMOVE:
-      PanelTrackHover(hwnd);
-      return 0;
-
-   case WM_MOUSELEAVE:
-      PanelLeaveHover(hwnd);
-      return 0;
-
    case WM_PAINT:
    {
       PAINTSTRUCT ps;
@@ -831,8 +823,6 @@ static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
-      if (PanelIsHovered(hwnd))
-         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }

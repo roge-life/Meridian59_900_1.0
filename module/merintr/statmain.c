@@ -59,14 +59,6 @@ static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam,
       return 0;
    }
 
-   case WM_MOUSEMOVE:
-      PanelTrackHover(hwnd);
-      return 0;
-
-   case WM_MOUSELEAVE:
-      PanelLeaveHover(hwnd);
-      return 0;
-
    case WM_ERASEBKGND:
       return 1;
 
@@ -77,8 +69,6 @@ static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam,
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
-      if (PanelIsHovered(hwnd))
-         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       StatsMainRedraw();
       return 0;
