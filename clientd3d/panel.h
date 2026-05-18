@@ -38,5 +38,6 @@ M59EXPORT void    PanelLeaveHover(HWND hwnd);
 M59EXPORT void    PanelSetName(HWND hwnd, const char *name);
 M59EXPORT void    PanelLoadPos(HWND hwnd, const char *name);
 M59EXPORT void    PanelSaveAll(void);
+M59EXPORT void    PanelClampAll(HWND hRef);
 
 #endif /* _PANEL_H */

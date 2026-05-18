@@ -149,8 +149,9 @@ void InventoryBoxCreate(HWND hParent)
       SetWindowPos(hwndInvDialog, HWND_TOP, pt.x, pt.y, inv_ww, inv_wh, SWP_NOACTIVATE);
    }
    PanelRegister(hwndInvDialog);
+   PanelLoadPos(hwndInvDialog, "Inventory");
 
-   hwndInv = CreateWindow("button", NULL, 
+   hwndInv = CreateWindow("button", NULL,
 			  WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
 			  0, 0, 0, 0,
 			  hwndInvDialog, (HMENU) IDC_INVENTORY, hInst, NULL);

@@ -405,6 +405,36 @@ M59EXPORT LRESULT PanelHitTest(HWND hwnd, LPARAM lParam, BOOL canResize)
 }
 
 /*
+ * PanelClampAll: After a main-window resize, nudge any registered panel that
+ * has drifted entirely outside hRef's screen rect back into view.  Leaves at
+ * least 40 px of the panel inside the reference window on each axis.
+ */
+M59EXPORT void PanelClampAll(HWND hRef)
+{
+   RECT bounds;
+   GetWindowRect(hRef, &bounds);
+   int margin = 40;
+
+   for (int i = 0; i < nPanels; i++)
+   {
+      RECT pr;
+      GetWindowRect(panels[i], &pr);
+      int pw = pr.right  - pr.left;
+      int ph = pr.bottom - pr.top;
+      int nx = pr.left, ny = pr.top;
+
+      if (nx + pw < bounds.left + margin) nx = bounds.left + margin - pw;
+      if (nx       > bounds.right - margin)  nx = bounds.right - margin;
+      if (ny + ph < bounds.top  + margin) ny = bounds.top  + margin - ph;
+      if (ny       > bounds.bottom - margin) ny = bounds.bottom - margin;
+
+      if (nx != pr.left || ny != pr.top)
+         SetWindowPos(panels[i], NULL, nx, ny, 0, 0,
+            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+   }
+}
+
+/*
  * PanelSnap: Adjust WINDOWPOS during a move to snap edges to nearby panels.
  */
 M59EXPORT void PanelSnap(HWND hwnd, WINDOWPOS *wp)

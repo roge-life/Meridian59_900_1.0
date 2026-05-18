@@ -116,6 +116,7 @@ void InterfaceResizeModule(int xsize, int ysize, AREA *view)
    EnchantmentsResize(xsize, ysize, view);
    InterfaceDrawResize(xsize, ysize, view);
    StatsMoveButtons();
+   PanelClampAll(cinfo->hMain);
 }
 /****************************************************************************/
 /*

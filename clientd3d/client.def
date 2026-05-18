@@ -68,6 +68,7 @@ EXPORTS
 	PanelSetName
 	PanelLoadPos
 	PanelSaveAll
+	PanelClampAll
 
 ; Send messages to other modules
 	ModuleEvent
