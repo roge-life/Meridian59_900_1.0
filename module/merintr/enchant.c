@@ -89,6 +89,10 @@ static LRESULT CALLBACK EnchantPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       EndPaint(hwnd, &ps);
       return 0;
    }
+
+   case WM_DRAWITEM:
+      EnchantmentDrawItem(hwnd, (const DRAWITEMSTRUCT *)lp);
+      return TRUE;
    }
    return DefWindowProc(hwnd, msg, wp, lp);
 }

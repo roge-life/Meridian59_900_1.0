@@ -1332,6 +1332,11 @@ void ShowInventory( Bool bShow )
 	ShowWindow( hwndInvScroll, bShow && has_scrollbar ? SW_SHOWNORMAL : SW_HIDE );
 }
 
+Bool IsInventoryVisible(void)
+{
+   return hwndInvDialog != NULL && IsWindowVisible(hwndInvDialog);
+}
+
 /************************************************************************/
 HWND GetHwndInv()
 {

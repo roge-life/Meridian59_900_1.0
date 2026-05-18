@@ -25,6 +25,6 @@ int  StatsGetButtonBorder(void);
 Bool StatButtonDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis);
 void StatButtonCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify);
 
-int StatsFindGroupByHwnd(HWND hwnd);
+int  StatsFindGroupByHwnd(HWND hwnd);
 
 #endif /* #ifndef _STATBTN_H */

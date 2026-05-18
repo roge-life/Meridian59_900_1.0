@@ -6,90 +6,111 @@
 //
 // Meridian is a registered trademark.
 /*
- * stats.c:  Handle display of game statistics area in the main window.
- * 
- * Stat groups are numbered starting with 1.
+ * stats.c:  Handle display of game statistics.
  *
- * The stats area is a modeless dialog box, with the main window as its parent.
+ * Each of the 4 stat groups (Stats/Spells/Skills/Quests) has its own
+ * independent floating panel.  Inventory has its own panel in inventry.c.
+ * The 5 group buttons live in a fixed button bar at the bottom-right of
+ * the screen (managed by statbtn.c).
  */
 
 #include "client.h"
 #include "merintr.h"
 
-HWND hStats;                        // Window containing stats area
-static list_type stats = NULL;      // List of stats currently displayed
-
-static AREA stats_area;
-
-static int current_group;           // Group number currently being displayed
-static int group_type;              // Type of group currently being displayed
-
-/* local function prototypes */
 static void StatsCreateGroup(void);
 static void StatsDestroyGroup(void);
-static void StatsCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify);
-static BOOL CALLBACK StatsWindowProc(HWND hwnd, UINT message, UINT wParam, LONG lParam);
-static void StatRedraw(Statistic *s);
-/************************************************************************/
-/*
- * StatsCreate:  Create the stats area.
- */
-void StatsCreate(HWND hParent)
+
+/* Groups: Stats=2, Spells=3, Skills=4, Quests=5, Inventory=6 (separate) */
+#define NUM_STAT_PANELS 4   /* one per non-inventory group */
+#define PANEL_GROUP_BASE 2  /* first group index */
+
+typedef struct {
+   HWND      hwnd;
+   int       group;      /* STATS_SPELLS etc. */
+   int       group_type; /* GROUP_NONE / STATS_NUMERIC / STATS_LIST */
+   list_type stats;
+   AREA      area;       /* content area inside panel */
+} StatPanelState;
+
+static StatPanelState sps[NUM_STAT_PANELS];
+
+/* Globals read by statnum.c / statlist.c */
+HWND hStats = NULL;
+static AREA   stats_area;
+static int    current_group;
+static int    group_type;
+static list_type stats_list; /* renamed from 'stats' to avoid shadowing */
+
+/* ---------------------------------------------------------------
+ * SetActiveStatPanel — point the statnum/statlist globals at panel idx
+ * --------------------------------------------------------------- */
+static void SetActiveStatPanel(int idx)
 {
-  CreateDialog(hInst, MAKEINTRESOURCE(IDD_STATS), hParent, StatsWindowProc);
-
-  // Set initial floating position: right side of main window, below toolbar.
-  // Content area is 200x380; add PANEL_DRAG_H for the drag strip.
-  {
-     int ww = 200, wh = 380 + PANEL_DRAG_H;
-     RECT cr;
-     GetClientRect(hParent, &cr);
-     POINT pt = {cr.right - ww - 4, 54};
-     ClientToScreen(hParent, &pt);
-     SetWindowPos(hStats, HWND_TOP, pt.x, pt.y, ww, wh, SWP_NOACTIVATE);
-  }
-  PanelRegister(hStats);
-
-  current_group = STATS_INVENTORY;   // Group to start displaying
-  group_type = GROUP_NONE;
-  StatCacheCreate();
-  StatButtonsCreate();
-  RequestStatGroups();
+   if (idx < 0 || idx >= NUM_STAT_PANELS) return;
+   hStats        = sps[idx].hwnd;
+   current_group = sps[idx].group;
+   group_type    = sps[idx].group_type;
+   stats_list    = sps[idx].stats;
+   RECT r;
+   GetClientRect(hStats, &r);
+   /* stats_area.cy = r.bottom so statnum/statlist comparisons work:
+      content starts at StatsGetButtonBorder() = PANEL_DRAG_H */
+   sps[idx].area.x  = 0;
+   sps[idx].area.y  = PANEL_DRAG_H;
+   sps[idx].area.cx = r.right;
+   sps[idx].area.cy = r.bottom;
+   stats_area = sps[idx].area;
 }
-/************************************************************************/
-/* 
- * StatsWindowProc:  Subclass stats window to have transparent background.
- */
-BOOL CALLBACK StatsWindowProc(HWND hwnd, UINT message, UINT wParam, LONG lParam)
+
+static int GroupToIdx(int group)
 {
-   const DRAWITEMSTRUCT *lpdis;
+   int idx = group - PANEL_GROUP_BASE;
+   return (idx >= 0 && idx < NUM_STAT_PANELS) ? idx : -1;
+}
 
-   switch (message)
+/* ---------------------------------------------------------------
+ * StatsGetArea / StatsGetCurrentGroup — used by statnum.c, statlist.c
+ * --------------------------------------------------------------- */
+void StatsGetArea(AREA *a)
+{
+   memcpy(a, &stats_area, sizeof(stats_area));
+}
+
+int StatsGetCurrentGroup(void)
+{
+   return current_group;
+}
+
+/* --------------------------------------------------------------- */
+Bool StatsIsPanelVisible(int button_idx)
+{
+   if (button_idx == 4)
+      return IsInventoryVisible();
+   if (button_idx >= 0 && button_idx < NUM_STAT_PANELS)
+      return sps[button_idx].hwnd != NULL && IsWindowVisible(sps[button_idx].hwnd);
+   return False;
+}
+
+/* ---------------------------------------------------------------
+ * StatGroupPanelProc — window proc for each of the 4 stat panels
+ * --------------------------------------------------------------- */
+static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+   int idx = (int)(LONG_PTR)GetWindowLongPtr(hwnd, GWLP_USERDATA);
+
+   switch (msg)
    {
-   case WM_INITDIALOG:
-      hStats = hwnd;
-      return FALSE;
-
    case WM_NCHITTEST:
-      SetWindowLongPtr(hwnd, DWLP_MSGRESULT, PanelHitTest(hwnd, lParam, TRUE));
-      return TRUE;
+      return PanelHitTest(hwnd, lp, TRUE);
 
    case WM_WINDOWPOSCHANGING:
-      PanelSnap(hwnd, (WINDOWPOS *)lParam);
-      return FALSE;
+      PanelSnap(hwnd, (WINDOWPOS *)lp);
+      return 0;
 
    case WM_SIZE:
-   {
-      RECT r;
-      GetClientRect(hwnd, &r);
-      stats_area.x  = 0;
-      stats_area.y  = PANEL_DRAG_H;
-      stats_area.cx = r.right;
-      stats_area.cy = r.bottom - PANEL_DRAG_H;
-      StatsMoveButtons();
+      SetActiveStatPanel(idx);
       StatsMove();
-      return FALSE;
-   }
+      return 0;
 
    case WM_PAINT:
    {
@@ -99,276 +120,311 @@ BOOL CALLBACK StatsWindowProc(HWND hwnd, UINT message, UINT wParam, LONG lParam)
       GetClientRect(hwnd, &r);
       PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
-      return FALSE;
+      return 0;
    }
 
    case WM_ERASEBKGND:
-      if (StatsGetCurrentGroup() == STATS_SPELLS
-         || StatsGetCurrentGroup() == STATS_SKILLS
-         || StatsGetCurrentGroup() == STATS_QUESTS)
-		{
-			StatsClearArea();
-			InvalidateRect( hStats, NULL, FALSE );
-		}
-      return TRUE;
+      return 1;
 
-      HANDLE_MSG(hwnd, WM_COMMAND, StatsCommand);
-      HANDLE_MSG(hwnd, WM_VSCROLL, StatsNumVScroll);
+   case WM_DRAWITEM:
+      SetActiveStatPanel(idx);
+      return StatsListDrawItem(hwnd, (const DRAWITEMSTRUCT *)lp);
 
    case WM_MEASUREITEM:
-      StatsListMeasureItem(hwnd, (MEASUREITEMSTRUCT *) lParam);
+      SetActiveStatPanel(idx);
+      StatsListMeasureItem(hwnd, (MEASUREITEMSTRUCT *)lp);
       return TRUE;
-   case WM_DRAWITEM: 
-     lpdis = (const DRAWITEMSTRUCT *)(lParam);
 
-     switch (lpdis->CtlID)
-     {
-     case IDC_STATBUTTON:
-       StatButtonDrawItem(hwnd, lpdis);
-       return False;
+   case WM_COMMAND:
+      SetActiveStatPanel(idx);
+      StatsListCommand(hwnd, LOWORD(wp), (HWND)lp, HIWORD(wp));
+      return 0;
 
-     default:
-       return StatsListDrawItem(hwnd, lpdis);
-     }
-     return TRUE;
-      
-   case WM_SETFOCUS:
-   case WM_KILLFOCUS:
-      StatsSetButtonFocus(current_group);
-      break;
-
-   case WM_ACTIVATE:
-     if (wParam == 0)
-       *cinfo->hCurrentDlg = NULL;
-     else *cinfo->hCurrentDlg = hwnd;
-     return TRUE;
+   case WM_VSCROLL:
+      SetActiveStatPanel(idx);
+      StatsNumVScroll(hwnd, (HWND)lp, LOWORD(wp), HIWORD(wp));
+      return 0;
    }
-   return FALSE;
+   return DefWindowProc(hwnd, msg, wp, lp);
 }
-/****************************************************************************/
-void StatsCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
+
+/* ---------------------------------------------------------------
+ * StatsCreate — create the 4 floating group panels
+ * --------------------------------------------------------------- */
+void StatsCreate(HWND hParent)
 {
-   switch (id)
+   static Bool classRegistered = False;
+   if (!classRegistered)
    {
-   case IDC_STATBUTTON:
-      StatButtonCommand(hwnd, id, hwndCtl, codeNotify);
-      break;
-
-   case IDC_STATLIST:
-      StatsListCommand(hwnd, id, hwndCtl, codeNotify);
-      break;
+      WNDCLASSEX wc;
+      memset(&wc, 0, sizeof(wc));
+      wc.cbSize        = sizeof(wc);
+      wc.lpfnWndProc   = StatGroupPanelProc;
+      wc.hInstance     = hInst;
+      wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+      wc.lpszClassName = "M59StatGroupPanel";
+      RegisterClassEx(&wc);
+      classRegistered = True;
    }
+
+   int default_w = 200, default_h = 320 + PANEL_DRAG_H;
+   RECT cr;
+   GetClientRect(hParent, &cr);
+
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
+   {
+      sps[i].group      = i + PANEL_GROUP_BASE;
+      sps[i].group_type = GROUP_NONE;
+      sps[i].stats      = NULL;
+
+      /* Default position: right side of main window, cascaded */
+      POINT pt = {cr.right - default_w - 4, 54 + i * 30};
+      ClientToScreen(hParent, &pt);
+
+      sps[i].hwnd = CreateWindowEx(WS_EX_TOOLWINDOW, "M59StatGroupPanel", NULL,
+         WS_POPUP | WS_VISIBLE | WS_CLIPCHILDREN,
+         pt.x, pt.y, default_w, default_h,
+         hParent, NULL, hInst, NULL);
+      SetWindowLongPtr(sps[i].hwnd, GWLP_USERDATA, (LONG_PTR)i);
+
+      sps[i].area.x  = 0;
+      sps[i].area.y  = PANEL_DRAG_H;
+      sps[i].area.cx = default_w;
+      sps[i].area.cy = default_h;
+
+      ShowWindow(sps[i].hwnd, SW_HIDE);
+      PanelRegister(sps[i].hwnd);
+   }
+
+   /* Point globals at panel 0 as a safe default */
+   SetActiveStatPanel(0);
+
+   StatCacheCreate();
+   StatButtonsCreate();
+   RequestStatGroups();
 }
-/************************************************************************/
-/*
- * StatsDestroy:  Destroy the stats area.
- */
+
+/* ---------------------------------------------------------------
+ * StatsDestroy
+ * --------------------------------------------------------------- */
 void StatsDestroy(void)
 {
-   StatsDestroyGroup();
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
+   {
+      if (!sps[i].hwnd) continue;
+      SetActiveStatPanel(i);
+      StatsDestroyGroup();
+      sps[i].stats      = NULL;
+      sps[i].group_type = GROUP_NONE;
+      PanelUnregister(sps[i].hwnd);
+      DestroyWindow(sps[i].hwnd);
+      sps[i].hwnd = NULL;
+   }
    StatsDestroyButtons();
-   stats = NULL;     // Actual list freed by cache
-   PanelUnregister(hStats);
-   DestroyWindow(hStats);
-
    StatButtonsDestroy();
    StatCacheDestroy();
+   hStats = NULL;
 }
-/************************************************************************/
-/*
- * StatsResize:  Resize the stats area when the main window is resized
- *   to (xsize, ysize).  view is the current grid area view.
- */
+
+/* ---------------------------------------------------------------
+ * StatsResize — called on main window resize; panels are floating
+ * so just refresh their content layout
+ * --------------------------------------------------------------- */
 void StatsResize(int xsize, int ysize, AREA *view)
 {
-   if (!hStats) return;
-
-   // Panel is a free-floating popup; content starts below the drag strip.
-   RECT r;
-   GetClientRect(hStats, &r);
-   stats_area.x  = 0;
-   stats_area.y  = PANEL_DRAG_H;
-   stats_area.cx = r.right;
-   stats_area.cy = r.bottom - PANEL_DRAG_H;
-
-   ShowWindow(hStats, SW_SHOWNORMAL);
-   StatsMoveButtons();
-   StatsMove();
-}
-/************************************************************************/
-void StatsSetFocus(Bool forward)
-{
-   SetFocus(hStats);
-}
-/************************************************************************/
-void StatsDrawBorder(void)
-{
-   // Panel is a floating popup with its own OS border; no hMain border needed.
-}
-/************************************************************************/
-/*
- * StatsResetFont:  Set stats font when the font changes.
- */
-void StatsResetFont(void)
-{
-   StatsDestroyGroup();
-   StatsCreateGroup();
-   StatsMove();
-   InvalidateRect(hStats, NULL, TRUE);
-}
-/************************************************************************/
-/*
- * StatsChangeColor:  Called when user changes a color.
- */
-void StatsChangeColor(void)
-{
-   list_type l;
-   // Change colors in bar graphs
-   
-   for (l = stats; l != NULL; l = l->next)
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
    {
-      Statistic *s = (Statistic *) (l->data);
-
-      if (s->numeric.tag != STAT_INT)
-	 continue;
-      
-      SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_BAR, GetColor(COLOR_BAR1));
-      SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_LIMITBAR, GetColor(COLOR_BAR2));
-      SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_BKGND, GetColor(COLOR_BAR3));
+      if (!sps[i].hwnd || sps[i].group_type == GROUP_NONE) continue;
+      SetActiveStatPanel(i);
+      StatsMove();
    }
 }
 
-/************************************************************************/
-/*
- * StatsDrawNumItem:  Redraw stats area.
- */
+/* ---------------------------------------------------------------
+ * StatsSetFocus / StatsDrawBorder — no-ops for floating panels
+ * --------------------------------------------------------------- */
+void StatsSetFocus(Bool forward)
+{
+   if (hStats) SetFocus(hStats);
+}
+
+void StatsDrawBorder(void)
+{
+}
+
+/* ---------------------------------------------------------------
+ * StatsResetFont
+ * --------------------------------------------------------------- */
+void StatsResetFont(void)
+{
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
+   {
+      if (!sps[i].hwnd || sps[i].group_type == GROUP_NONE) continue;
+      SetActiveStatPanel(i);
+      StatsDestroyGroup();
+      StatsCreateGroup();
+      StatsMove();
+      InvalidateRect(sps[i].hwnd, NULL, TRUE);
+   }
+}
+
+/* ---------------------------------------------------------------
+ * StatsChangeColor — update graph colours across all panels
+ * --------------------------------------------------------------- */
+void StatsChangeColor(void)
+{
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
+   {
+      if (sps[i].group_type != STATS_NUMERIC) continue;
+      list_type l;
+      for (l = sps[i].stats; l != NULL; l = l->next)
+      {
+         Statistic *s = (Statistic *)(l->data);
+         if (s->numeric.tag != STAT_INT) continue;
+         SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_BAR,      GetColor(COLOR_BAR1));
+         SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_LIMITBAR, GetColor(COLOR_BAR2));
+         SendMessage(s->hControl, GRPH_COLORSET, GRAPHCOLOR_BKGND,    GetColor(COLOR_BAR3));
+      }
+   }
+}
+
+/* ---------------------------------------------------------------
+ * StatsClearArea — with floating panels just invalidate
+ * --------------------------------------------------------------- */
+void StatsClearArea(void)
+{
+   if (hStats) InvalidateRect(hStats, NULL, FALSE);
+}
+
+/* ---------------------------------------------------------------
+ * StatsDraw / StatsMove — use active panel globals
+ * --------------------------------------------------------------- */
+void StatsDraw(void)
+{
+   switch (group_type)
+   {
+   case STATS_NUMERIC:
+      StatsNumDraw(stats_list);
+      break;
+   case STATS_LIST:
+      break;
+   }
+}
+
+void StatsMove(void)
+{
+   switch (group_type)
+   {
+   case STATS_NUMERIC:
+      StatsNumResize(stats_list);
+      break;
+   case STATS_LIST:
+      StatsListResize(stats_list);
+      break;
+   }
+}
+
+/* ---------------------------------------------------------------
+ * StatsDrawNumItem — owner-draw callback (kept for compat)
+ * --------------------------------------------------------------- */
 Bool StatsDrawNumItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
 {
    StatsDraw();
    return True;
 }
 
-/************************************************************************/
-void StatsClearArea(void)
+/* ---------------------------------------------------------------
+ * StatsCreateGroup / StatsDestroyGroup — create/destroy content controls
+ * --------------------------------------------------------------- */
+static void StatsCreateGroup(void)
 {
-   HDC hdc = GetDC(cinfo->hMain);
-   RECT r;
-
-   AreaToRect(&stats_area, &r);
-   r.top += StatsGetButtonBorder() - STATUS_BUTTON_SPACING;
-   if (r.top < stats_area.y)
-      r.top = stats_area.y;
-   DrawWindowBackgroundColor( pinventory_bkgnd(), hdc, &r, r.left, r.top, -1 );
-   ReleaseDC(cinfo->hMain, hdc);
+   switch (group_type)
+   {
+   case STATS_NUMERIC:
+      StatsNumCreate(stats_list);
+      break;
+   case STATS_LIST:
+      StatsListCreate(stats_list);
+      break;
+   }
 }
-/************************************************************************/
-/*
- * StatsGroupsInfo:  We've just received info on stat groups from the server.
- *   num_groups gives the number of groups; names is an array of their name resources.
- */
+
+static void StatsDestroyGroup(void)
+{
+   switch (group_type)
+   {
+   case STATS_NUMERIC:
+      StatsNumDestroy(stats_list);
+      break;
+   case STATS_LIST:
+      StatsListDestroy(stats_list);
+      break;
+   }
+}
+
+/* ---------------------------------------------------------------
+ * DisplayStatGroup — populate and show the panel for this group
+ * --------------------------------------------------------------- */
+void DisplayStatGroup(BYTE group, list_type l)
+{
+   int idx = GroupToIdx(group);
+   if (idx < 0) return;
+
+   /* Tear down old content */
+   SetActiveStatPanel(idx);
+   StatsDestroyGroup();
+
+   sps[idx].stats      = l;
+   sps[idx].group_type = (l == NULL) ? GROUP_NONE : ((Statistic *)(l->data))->type;
+   SetActiveStatPanel(idx);
+
+   StatsCreateGroup();
+   StatsMove();
+   InvalidateRect(sps[idx].hwnd, NULL, TRUE);
+
+   /* Show the panel so the user sees it appeared */
+   ShowWindow(sps[idx].hwnd, SW_SHOWNOACTIVATE);
+   /* Repaint the button bar button to reflect pressed state */
+   StatsMoveButtons();
+}
+
+/* ---------------------------------------------------------------
+ * StatsGroupsInfo — server told us how many groups exist
+ * --------------------------------------------------------------- */
 void StatsGroupsInfo(BYTE num_groups, ID *names)
 {
-   // We actually don't use stat names, since stat buttons are bitmaps
    SafeFree(names);
-
-   StatsDestroyGroup();
+   for (int i = 0; i < NUM_STAT_PANELS; i++)
+   {
+      SetActiveStatPanel(i);
+      StatsDestroyGroup();
+      sps[i].stats      = NULL;
+      sps[i].group_type = GROUP_NONE;
+   }
    StatsMainDestroy();
-   stats = NULL;
-	//	ajw - Hard-coded number of "groups" as 5, as there are now 4 buttons.
-	//	To keep things the way they were apparently intended, I'd have to change the message sent from the server.
-	//	This seems pointless - I'm not sure why the number of stats list groups was being sent at all...
-   //StatsSetButtons(num_groups);	ajw
    StatsSetButtons(6);
    StatCacheSetSize(num_groups);
-   RequestStats(STATS_MAIN);              // Always get main stats
-   if( current_group != STATS_INVENTORY )
-		RequestStats(current_group);
+   RequestStats(STATS_MAIN);
 }
 
-/************************************************************************/
-/*
- * StatsCreateGroup:  Create controls for a group of stats.
- *   Requires that group_type and stats have already been set.
- */
-void StatsCreateGroup(void)
+/* ---------------------------------------------------------------
+ * StatsReceiveGroup — server delivered a group of stats
+ * --------------------------------------------------------------- */
+void StatsReceiveGroup(BYTE group, list_type l)
 {
-   switch(group_type)
-   {
-   case STATS_NUMERIC:
-      StatsNumCreate(stats);
-      break;
-
-   case STATS_LIST:
-      StatsListCreate(stats);
-      break;
-   }   
-}
-/************************************************************************/
-/*
- * StatsDestroyGroup:  Destroy controls for a group of stats.
- */
-void StatsDestroyGroup(void)
-{
-   switch(group_type)
-   {
-   case STATS_NUMERIC:
-      StatsNumDestroy(stats);
-      break;
-
-   case STATS_LIST:
-      StatsListDestroy(stats);
-      break;
-   }
-}
-/************************************************************************/
-/*
- * StatsMove:  Move stat controls when main window is resized.
- */
-void StatsMove(void)
-{
-   switch(group_type)
-   {
-   case STATS_NUMERIC:
-      StatsNumResize(stats);
-      break;
-
-   case STATS_LIST:
-      StatsListResize(stats);
-      break;
-   }
+   if (group == STATS_MAIN)
+      StatsMainReceive(l);
+   else
+      DisplayStatGroup(group, l);
+   StatCacheSetEntry(group, l);
 }
 
-/************************************************************************/
-/*
- * StatsDraw:  Display all the main stats.
- */
-void StatsDraw(void)
-{
-   switch(group_type)
-   {
-   case STATS_NUMERIC:
-		if( StatsGetCurrentGroup() != STATS_INVENTORY 
-         && StatsGetCurrentGroup() != STATS_SPELLS 
-         && StatsGetCurrentGroup() != STATS_SKILLS
-         && StatsGetCurrentGroup() != STATS_QUESTS )
-			StatsNumDraw(stats);
-      break;
-
-   case STATS_LIST:
-//	   InvalidateRect( hStats, NULL, FALSE );
-      break;
-   }
-}
-
-/************************************************************************/
-/*
- * StatChange:  Called when server tells us that a statistic has changed value.
- */
+/* ---------------------------------------------------------------
+ * StatChange — a single stat changed value
+ * --------------------------------------------------------------- */
 void StatChange(BYTE group, Statistic *s)
 {
-   Statistic *new_stat;
-
-   new_stat = StatCacheUpdate(group, s);
+   Statistic *new_stat = StatCacheUpdate(group, s);
 
    if (group == STATS_MAIN && new_stat != NULL)
    {
@@ -376,119 +432,62 @@ void StatChange(BYTE group, Statistic *s)
       return;
    }
 
-   if (new_stat == NULL || group != current_group)
-      return;
+   int idx = GroupToIdx(group);
+   if (idx < 0 || new_stat == NULL) return;
 
-   StatRedraw(new_stat);
-}
-/************************************************************************/
-/*
- * StatRedraw:  Redraw a statistic whose value has changed.
- */
-void StatRedraw(Statistic *s)
-{
-   switch (s->type)
+   /* Only redraw if this panel is visible */
+   if (!IsWindowVisible(sps[idx].hwnd)) return;
+
+   SetActiveStatPanel(idx);
+   switch (new_stat->type)
    {
-   case STATS_NUMERIC:
-      StatsNumChangeStat(s);
-      break;
-
-   case STATS_LIST:
-      StatsListChangeStat(s);
-      break;
+   case STATS_NUMERIC: StatsNumChangeStat(new_stat);  break;
+   case STATS_LIST:    StatsListChangeStat(new_stat); break;
    }
 }
-/************************************************************************/
-/*
- * StatsReceiveGroup:  Called when we receive a group of stats from the server.
- */
-void StatsReceiveGroup(BYTE group, list_type l)
-{
-	if (group == STATS_MAIN)
-		StatsMainReceive(l);
-	else 
-	{
-		//	ajw added 5/22/97
-		//	This fixes the bug that occurred when the server sends new spells/skills when Inventory is the
-		//	current group. (Receiving "main stats" never forces a shift in viewed group.)
-		if (group != StatsGetCurrentGroup())
-		{
-			//	ajw Changes to make Inventory act somewhat like one of the stats groups.
-			if( StatsGetCurrentGroup() == STATS_INVENTORY )
-			{
-				//	Inventory must be going away.
-				ShowInventory( False );
-			}
-		}
-		DisplayStatGroup(group, l);
-	}
 
-   StatCacheSetEntry(group, l);
+/* ---------------------------------------------------------------
+ * TogglStatGroupPanel — called from the button bar to open/close
+ * --------------------------------------------------------------- */
+void ToggleStatGroupPanel(int button_idx)
+{
+   if (button_idx == 4)
+   {
+      /* Inventory */
+      ShowInventory(!IsInventoryVisible());
+      return;
+   }
+   if (button_idx < 0 || button_idx >= NUM_STAT_PANELS) return;
+
+   HWND hPanel = sps[button_idx].hwnd;
+   if (IsWindowVisible(hPanel))
+   {
+      ShowWindow(hPanel, SW_HIDE);
+   }
+   else
+   {
+      /* If we have never loaded this group, request it from server */
+      if (sps[button_idx].group_type == GROUP_NONE)
+      {
+         int group = sps[button_idx].group;
+         list_type stat_list;
+         if (StatCacheGetEntry(group, &stat_list))
+            DisplayStatGroup((BYTE)group, stat_list);
+         else
+            RequestStats(group);
+      }
+      ShowWindow(hPanel, SW_SHOWNOACTIVATE);
+      SetForegroundWindow(hPanel);
+   }
 }
 
-/************************************************************************/
-void StatsGetArea(AREA *a)
+/* ---------------------------------------------------------------
+ * Legacy stubs kept for compilation
+ * --------------------------------------------------------------- */
+void DisplayInventoryAsStatGroup(BYTE group)
 {
-   memcpy(a, &stats_area, sizeof(stats_area));
-}
-/************************************************************************/
-/*
- * StatsGetCurrentGroup:  Return the stat group currently being displayed
- */
-int StatsGetCurrentGroup(void)
-{
-   return current_group;
 }
 
-/************************************************************************/
-/*
- * DisplayStatGroup:  Display the given group of stats.
- */
-void DisplayStatGroup(BYTE group, list_type l)
+void StatsShowGroup(Bool bShow)
 {
-   current_group = group;
-
-   StatsDestroyGroup();
-   stats = l;
-
-   if (stats == NULL)
-      group_type = GROUP_NONE;
-   else group_type = ((Statistic *) (stats->data))->type;
-
-   StatsClearArea();
-
-   StatsCreateGroup();
-   InvalidateRect(hStats, NULL, TRUE);
-   StatsMove();
-}
-
-/************************************************************************/
-/*
- * DisplayInventoryAsStatGroup:  ajw - Like DisplayStatGroup, but called when Inventory becomes the shown "group".
- */
-void DisplayInventoryAsStatGroup( BYTE group )
-{
-	current_group = group;
-}
-
-/************************************************************************/
-/*
- * StatsShowGroup:  ajw - Show or hide controls for a group of stats.
- */
-void StatsShowGroup( Bool bShow )
-{
-	int group_type_temp;              // Type of group currently being displayed
-	if (stats == NULL)
-		group_type_temp = GROUP_NONE;
-	else group_type_temp = ((Statistic *) (stats->data))->type;
-	switch( group_type_temp )
-	{
-	case STATS_NUMERIC:
-		ShowStatsNum( bShow, stats );
-		break;
-
-	case STATS_LIST:
-		ShowStatsList( bShow );
-		break;
-	}
 }

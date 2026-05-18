@@ -82,4 +82,9 @@ void DisplayStatGroup(BYTE group, list_type l);
 void DisplayInventoryAsStatGroup( BYTE group );
 void StatsShowGroup( Bool bShow );
 
+void ToggleStatGroupPanel(int button_idx);
+Bool StatsIsPanelVisible(int button_idx);
+
+Bool IsInventoryVisible(void);
+
 #endif /* #ifndef _STATS_H */
