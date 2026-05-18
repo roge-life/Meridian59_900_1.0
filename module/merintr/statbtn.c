@@ -120,6 +120,9 @@ void StatButtonsCreate(void)
       max_height = max(max_height, buttons[i].height);
    }
    button_border = PANEL_DRAG_H;  /* content starts below drag strip in panels */
+
+   /* Create the bar immediately so it's visible from login, not dependent on server message */
+   StatsCreateButtons();
 }
 
 void StatButtonsDestroy(void)
@@ -127,14 +130,11 @@ void StatButtonsDestroy(void)
 }
 
 /* ---------------------------------------------------------------
- * StatsSetButtons — called from StatsGroupsInfo; triggers bar+button creation
+ * StatsSetButtons — called from StatsGroupsInfo; bar already created at startup
  * --------------------------------------------------------------- */
 void StatsSetButtons(int num_groups)
 {
-   if (num_groups == NUM_BUTTONS + 1)
-      StatsCreateButtons();
-   else
-      debug(("StatsSetButtons got %d; expecting %d\n", num_groups, NUM_BUTTONS + 1));
+   StatsMoveButtons();
 }
 
 /* ---------------------------------------------------------------
@@ -172,7 +172,7 @@ static void StatsCreateButtons(void)
          WS_POPUP | WS_VISIBLE,
          work.right - barW, work.bottom - barH,
          barW, barH,
-         NULL, NULL, hInst, NULL);
+         cinfo->hMain, NULL, hInst, NULL);
       PanelRegister(hStatButtonBar);
    }
 

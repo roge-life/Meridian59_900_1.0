@@ -118,6 +118,8 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
+      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &content, GetSysColorBrush(COLOR_BTNFACE));
       PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
@@ -370,6 +372,8 @@ void DisplayStatGroup(BYTE group, list_type l)
    int idx = GroupToIdx(group);
    if (idx < 0) return;
 
+   Bool wasVisible = IsWindowVisible(sps[idx].hwnd);
+
    /* Tear down old content */
    SetActiveStatPanel(idx);
    StatsDestroyGroup();
@@ -382,8 +386,9 @@ void DisplayStatGroup(BYTE group, list_type l)
    StatsMove();
    InvalidateRect(sps[idx].hwnd, NULL, TRUE);
 
-   /* Show the panel so the user sees it appeared */
-   ShowWindow(sps[idx].hwnd, SW_SHOWNOACTIVATE);
+   /* Only re-show if user already had this panel open; new opens go via ToggleStatGroupPanel */
+   if (wasVisible)
+      ShowWindow(sps[idx].hwnd, SW_SHOWNOACTIVATE);
    /* Repaint the button bar button to reflect pressed state */
    StatsMoveButtons();
 }

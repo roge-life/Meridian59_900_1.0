@@ -192,19 +192,8 @@ void TextInputResetFont(void)
  */
 void TextInputResize(int xsize, int ysize, AREA view)
 {
-   RECT rc;
    CalculateWindowHeight();
-   input_area.x = view.x;
-   input_area.y = ysize - EDGETREAT_HEIGHT - HIGHLIGHT_THICKNESS - GetTextInputHeight() - STATS_BOTTOM_GAP_HEIGHT;
-
-   input_area.cx = view.cx + 2;					//	ajw added 2 pixels to line up with scrollbar
-   input_area.cy = GetTextInputHeight();
-   //MoveWindow(hwndEdit, input_area.x - 2, input_area.y,input_area.cx + 2, input_area.cy, TRUE);
-   MoveWindow(hwndInput, input_area.x - 2, input_area.y,		//	ajw Moved left another 2 pixels...
-	      input_area.cx + 2, input_area.cy * 6,
-	      TRUE);
-   SetRect(&rc,view.x-4,view.x + view.cx + 4,input_area.y - 2, input_area.y+input_area.cy+2);
-   InvalidateRect(hMain,&rc,FALSE);
+   /* hwndInput is a child of hChatPanel which manages its own layout via WM_SIZE */
 }
 
 /************************************************************************/
