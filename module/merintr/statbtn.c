@@ -119,7 +119,7 @@ void StatButtonsCreate(void)
 
       max_height = max(max_height, buttons[i].height);
    }
-   button_border = PANEL_DRAG_H;  /* content starts below drag strip in panels */
+   button_border = 0;  /* overlay strip overlays content; no reserved space */
 
    /* Create the bar immediately so it's visible from login, not dependent on server message */
    StatsCreateButtons();
@@ -173,7 +173,6 @@ static void StatsCreateButtons(void)
          work.right - barW, work.bottom - barH,
          barW, barH,
          cinfo->hMain, NULL, hInst, NULL);
-      PanelRegister(hStatButtonBar);
    }
 
    /* Destroy and recreate button HWNDs */
@@ -206,7 +205,6 @@ void StatsDestroyButtons(void)
 
    if (hStatButtonBar)
    {
-      PanelUnregister(hStatButtonBar);
       DestroyWindow(hStatButtonBar);
       hStatButtonBar = NULL;
    }

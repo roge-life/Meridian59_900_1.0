@@ -299,8 +299,7 @@ void DisplayNumericStat(Statistic *s)
       return;
 
    hdc = GetDC(hStats);
-//   DrawWindowBackground(hdc, &r, stats_area.x + r.left, stats_area.y + r.top);
-   DrawWindowBackgroundColor( pinventory_bkgnd(), hdc, &r, stats_area.x + r.left, stats_area.y + r.top, -1 );
+   FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
    hOldFont = (HFONT) SelectObject(hdc, GetFont(FONT_STATS));
 
@@ -320,7 +319,7 @@ void DisplayNumericStat(Statistic *s)
    case STAT_RES:
       r.left  = stats_area.cx / 2;
       r.right = stats_area.cx;
-      DrawWindowBackgroundColor( pinventory_bkgnd(), hdc, &r, stats_area.x + r.left, stats_area.y + r.top, -1 );
+      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
       str = LookupNameRsc(s->numeric.value);
       DrawText(hdc, str, strlen(str), &r, DT_RIGHT);
@@ -332,7 +331,7 @@ void DisplayNumericStat(Statistic *s)
      a.cx = stats_bar_width;
      a.y = s->y + (s->cy - STATS_BAR_HEIGHT) / 2;
      a.cy = STATS_BAR_HEIGHT;
-     InterfaceDrawBarBorder( pinventory_bkgnd(), hdc, &a );
+     InterfaceDrawBarBorder( NULL, hdc, &a );
      break;
    }
 

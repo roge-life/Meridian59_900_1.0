@@ -139,6 +139,7 @@ void TextInputCreate(HWND hParent)
          pt.x, pt.y - wh, ww, wh,
          hParent, NULL, hInst, NULL);
       PanelRegister(hChatPanel);
+      PanelLoadPos(hChatPanel, "Chat");
    }
 
    CalculateWindowHeight();

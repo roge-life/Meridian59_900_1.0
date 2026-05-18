@@ -65,6 +65,9 @@ EXPORTS
 	PanelIsHovered
 	PanelTrackHover
 	PanelLeaveHover
+	PanelSetName
+	PanelLoadPos
+	PanelSaveAll
 
 ; Send messages to other modules
 	ModuleEvent

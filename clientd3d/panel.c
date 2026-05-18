@@ -27,6 +27,12 @@ static HWND panels[MAX_PANELS];
 static int  nPanels    = 0;
 static BOOL gMovingAll = FALSE;   /* suppress snap during PanelMoveAll */
 
+/* ── Named panel position persistence ──────────────────────────────── */
+#define MAX_NAMED_PANELS 16
+typedef struct { HWND hwnd; char name[32]; } NamedPanel;
+static NamedPanel namedPanels[MAX_NAMED_PANELS];
+static int nNamedPanels = 0;
+
 /* ── Overlay state ──────────────────────────────────────────────── */
 static HWND  hOverlay    = NULL;  /* shared overlay window            */
 static HWND  hOvTarget   = NULL;  /* panel currently hovered          */
@@ -217,6 +223,8 @@ static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
    }
 
    case WM_LBUTTONUP:
+      if (hOvTarget && (gOvDragging || gOvResizing))
+         PanelSavePosForHwnd(hOvTarget);
       gOvDragging = gOvResizing = FALSE;
       ReleaseCapture();
       return 0;
@@ -250,6 +258,23 @@ static void PanelOverlayCreate(void)
       NULL, NULL, hInst, NULL);
 }
 
+static void PanelSavePosForHwnd(HWND hwnd)
+{
+   for (int i = 0; i < nNamedPanels; i++)
+   {
+      if (namedPanels[i].hwnd != hwnd) continue;
+      RECT r;
+      GetWindowRect(hwnd, &r);
+      char key[64];
+      const char *n = namedPanels[i].name;
+      sprintf(key, "Panel_%s_X", n); WriteConfigInt(key, r.left);
+      sprintf(key, "Panel_%s_Y", n); WriteConfigInt(key, r.top);
+      sprintf(key, "Panel_%s_W", n); WriteConfigInt(key, r.right - r.left);
+      sprintf(key, "Panel_%s_H", n); WriteConfigInt(key, r.bottom - r.top);
+      return;
+   }
+}
+
 /* ================================================================== */
 /* Public API                                                           */
 /* ================================================================== */
@@ -264,6 +289,10 @@ M59EXPORT void PanelRegister(HWND hwnd)
 
 M59EXPORT void PanelUnregister(HWND hwnd)
 {
+   /* Clear named panel entry */
+   for (int i = 0; i < nNamedPanels; i++)
+      if (namedPanels[i].hwnd == hwnd) { namedPanels[i].hwnd = NULL; break; }
+
    /* Hide overlay if it was targeting this panel */
    if (hOvTarget == hwnd)
    {
@@ -272,6 +301,46 @@ M59EXPORT void PanelUnregister(HWND hwnd)
    }
    for (int i = 0; i < nPanels; i++)
       if (panels[i] == hwnd) { panels[i] = panels[--nPanels]; return; }
+}
+
+M59EXPORT void PanelSetName(HWND hwnd, const char *name)
+{
+   for (int i = 0; i < nNamedPanels; i++)
+   {
+      if (namedPanels[i].hwnd == hwnd)
+      {
+         strncpy(namedPanels[i].name, name, 31);
+         namedPanels[i].name[31] = '\0';
+         return;
+      }
+   }
+   if (nNamedPanels < MAX_NAMED_PANELS)
+   {
+      namedPanels[nNamedPanels].hwnd = hwnd;
+      strncpy(namedPanels[nNamedPanels].name, name, 31);
+      namedPanels[nNamedPanels].name[31] = '\0';
+      nNamedPanels++;
+   }
+}
+
+M59EXPORT void PanelLoadPos(HWND hwnd, const char *name)
+{
+   PanelSetName(hwnd, name);
+   RECT r;
+   GetWindowRect(hwnd, &r);
+   char key[64];
+   sprintf(key, "Panel_%s_X", name); int x = GetConfigInt(key, r.left);
+   sprintf(key, "Panel_%s_Y", name); int y = GetConfigInt(key, r.top);
+   sprintf(key, "Panel_%s_W", name); int w = GetConfigInt(key, r.right - r.left);
+   sprintf(key, "Panel_%s_H", name); int h = GetConfigInt(key, r.bottom - r.top);
+   if (x != r.left || y != r.top || w != (r.right - r.left) || h != (r.bottom - r.top))
+      SetWindowPos(hwnd, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+M59EXPORT void PanelSaveAll(void)
+{
+   for (int i = 0; i < nNamedPanels; i++)
+      if (namedPanels[i].hwnd) PanelSavePosForHwnd(namedPanels[i].hwnd);
 }
 
 M59EXPORT void PanelMoveAll(int dx, int dy)

@@ -118,7 +118,7 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
+      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
       EndPaint(hwnd, &ps);
       return 0;
    }
@@ -161,7 +161,7 @@ void StatsCreate(HWND hParent)
       wc.cbSize        = sizeof(wc);
       wc.lpfnWndProc   = StatGroupPanelProc;
       wc.hInstance     = hInst;
-      wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+      wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
       wc.lpszClassName = "M59StatGroupPanel";
       RegisterClassEx(&wc);
       classRegistered = True;
@@ -194,6 +194,9 @@ void StatsCreate(HWND hParent)
 
       ShowWindow(sps[i].hwnd, SW_HIDE);
       PanelRegister(sps[i].hwnd);
+      char panelName[32];
+      sprintf(panelName, "StatGroup%d", i);
+      PanelLoadPos(sps[i].hwnd, panelName);
    }
 
    /* Point globals at panel 0 as a safe default */

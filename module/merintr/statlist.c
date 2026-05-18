@@ -233,11 +233,7 @@ BOOL StatsListDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
       if (lpdis->itemID == -1)
 	 return TRUE;
 
-      /* Draw window background at correct offset */
-      StatsGetArea(&stats_area);
-      DrawWindowBackgroundColor(pinventory_bkgnd(), lpdis->hDC, (RECT *) (&lpdis->rcItem),			//	was NULL
-				stats_area.x + lpdis->rcItem.left,
-				stats_area.y + lpdis->rcItem.top + StatsGetButtonBorder(), -1);
+      FillRect(lpdis->hDC, (RECT *)&lpdis->rcItem, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
       /* Draw info on stat */
 	  StatsListDrawStat(lpdis, (Bool) (lpdis->itemState & ODS_SELECTED), (Bool)( StatsGetCurrentGroup() == STATS_SPELLS ) );

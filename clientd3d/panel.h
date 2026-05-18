@@ -35,5 +35,8 @@ M59EXPORT void    PanelDrawDragStrip(HDC hdc, int width);
 M59EXPORT BOOL    PanelIsHovered(HWND hwnd);
 M59EXPORT void    PanelTrackHover(HWND hwnd);
 M59EXPORT void    PanelLeaveHover(HWND hwnd);
+M59EXPORT void    PanelSetName(HWND hwnd, const char *name);
+M59EXPORT void    PanelLoadPos(HWND hwnd, const char *name);
+M59EXPORT void    PanelSaveAll(void);
 
 #endif /* _PANEL_H */

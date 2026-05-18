@@ -68,7 +68,7 @@ static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam,
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
+      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
       EndPaint(hwnd, &ps);
       StatsMainRedraw();
       return 0;
@@ -87,7 +87,7 @@ void StatsMainPanelCreate(HWND hParent)
    wc.cbSize        = sizeof(WNDCLASSEX);
    wc.lpfnWndProc   = StatBarsPanelWndProc;
    wc.hInstance     = hInst;
-   wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+   wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
    wc.lpszClassName = "M59StatBarsPanel";
    RegisterClassEx(&wc);
 
@@ -100,6 +100,7 @@ void StatsMainPanelCreate(HWND hParent)
       pt.x, pt.y, STATBARS_PANEL_W, STATBARS_PANEL_H,
       hParent, NULL, hInst, NULL);
    PanelRegister(hStatBarsPanel);
+   PanelLoadPos(hStatBarsPanel, "StatBars");
 }
 /************************************************************************/
 /*

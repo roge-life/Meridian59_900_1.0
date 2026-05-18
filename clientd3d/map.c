@@ -860,6 +860,7 @@ void MiniMapPanelCreate(HWND hParent)
       pt.x, pt.y, ww, wh,
       hParent, NULL, hInst, NULL);
    PanelRegister(hMiniMapPanel);
+   PanelLoadPos(hMiniMapPanel, "MiniMap");
 }
 
 void MiniMapPanelDestroy(void)
