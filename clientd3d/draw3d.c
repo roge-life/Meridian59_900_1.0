@@ -845,18 +845,21 @@ void DrawMiniMap(room_type *room, Draw3DParams *params)
 
    int num_visible_object_SavedForMiniMapHack = num_visible_objects;
 
-   // Render minimap at the panel's client size.
+   // Render minimap into the area below the drag strip.
    RECT r;
    GetClientRect(hPanel, &r);
-   AREA area = {0, 0, r.right, r.bottom};
+   int mapY  = PANEL_DRAG_H;
+   int mapH  = r.bottom - mapY;
+   if (mapH <= 0) return;
+   AREA area = {0, 0, r.right, mapH};
    MapDraw(gMiniMapDC, gMiniMapBits, &area, room, MINIMAP_MAX_WIDTH, TRUE);
    num_visible_objects = num_visible_object_SavedForMiniMapHack;
 
-   // Push rendered pixels to the panel window.
+   // Push rendered pixels below the drag strip; strip itself is painted by WM_PAINT.
    HDC hdc = GetDC(hPanel);
    if (hdc)
    {
-      BitBlt(hdc, 0, 0, r.right, r.bottom, gMiniMapDC, 0, 0, SRCCOPY);
+      BitBlt(hdc, 0, mapY, r.right, mapH, gMiniMapDC, 0, 0, SRCCOPY);
       ReleaseDC(hPanel, hdc);
    }
 }

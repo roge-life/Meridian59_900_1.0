@@ -177,6 +177,7 @@ M59EXPORT void _cdecl dprintf(char *fmt,...);
 #include "toolbar.h"
 #include "drawbsp.h"
 #include "map.h"
+#include "panel.h"
 #include "bspload.h"
 #include "parse.h"
 #include "winmenu.h"

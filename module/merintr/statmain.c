@@ -26,7 +26,7 @@
 #define STAT_TOOLTIP_BASE 100  // Base for tooltip IDs
 
 #define STATBARS_PANEL_W 200
-#define STATBARS_PANEL_H (4 * (STAT_ICON_HEIGHT + STATS_MAIN_SPACING) + 4)
+#define STATBARS_PANEL_H (PANEL_DRAG_H + 4 * (STAT_ICON_HEIGHT + STATS_MAIN_SPACING) + 4)
 
 static HWND hStatBarsPanel = NULL;
 static list_type main_stats; // List of main stats (also kept in stat cache)
@@ -40,16 +40,41 @@ static void StatsMainSetColor(Statistic *s);
 
 static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-   if (msg == WM_ERASEBKGND)
+   switch (msg)
+   {
+   case WM_NCHITTEST:
+      return PanelHitTest(hwnd, lParam, TRUE);
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lParam);
+      return 0;
+
+   case WM_SIZE:
+   {
+      int w = LOWORD(lParam);
+      stat_x     = 2;
+      stat_bar_x = stat_x + STAT_ICON_WIDTH + 2;
+      stat_width = w - stat_bar_x - 2;
+      StatsMainMove();
+      return 0;
+   }
+
+   case WM_ERASEBKGND:
       return 1;
-   if (msg == WM_PAINT)
+
+   case WM_PAINT:
    {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
-      FillRect(hdc, &ps.rcPaint, GetSysColorBrush(COLOR_BTNFACE));
+      RECT r;
+      GetClientRect(hwnd, &r);
+      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &content, GetSysColorBrush(COLOR_BTNFACE));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       StatsMainRedraw();
       return 0;
+   }
    }
    return DefWindowProc(hwnd, msg, wParam, lParam);
 }
@@ -73,9 +98,10 @@ void StatsMainPanelCreate(HWND hParent)
    POINT pt = {8, 54};
    ClientToScreen(hParent, &pt);
    hStatBarsPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59StatBarsPanel", NULL,
-      WS_POPUP | WS_VISIBLE | WS_BORDER,
+      WS_POPUP | WS_VISIBLE,
       pt.x, pt.y, STATBARS_PANEL_W, STATBARS_PANEL_H,
       hParent, NULL, hInst, NULL);
+   PanelRegister(hStatBarsPanel);
 }
 /************************************************************************/
 /*
@@ -85,6 +111,7 @@ void StatsMainPanelDestroy(void)
 {
    if (hStatBarsPanel)
    {
+      PanelUnregister(hStatBarsPanel);
       DestroyWindow(hStatBarsPanel);
       hStatBarsPanel = NULL;
    }
@@ -114,7 +141,7 @@ void StatsMainReceive(list_type stats)
 
    // Create graph controls for integer stats, positioned within the panel
    height = STAT_ICON_HEIGHT + STATS_MAIN_SPACING;
-   y = 2;
+   y = PANEL_DRAG_H + 2;
    for (l = stats; l != NULL; l = l->next)
    {
       Statistic *s = (Statistic *) (l->data);
@@ -262,9 +289,14 @@ void StatsMainRedraw(void)
  */
 void StatsMainResize(int xsize, int ysize, AREA *view)
 {
-   stat_x = 2;
-   stat_bar_x = stat_x + STAT_ICON_WIDTH + 2;
-   stat_width = STATBARS_PANEL_W - stat_bar_x - 2;
+   if (hStatBarsPanel)
+   {
+      RECT r;
+      GetClientRect(hStatBarsPanel, &r);
+      stat_x     = 2;
+      stat_bar_x = stat_x + STAT_ICON_WIDTH + 2;
+      stat_width = r.right - stat_bar_x - 2;
+   }
    StatsMainMove();
 }
 /************************************************************************/

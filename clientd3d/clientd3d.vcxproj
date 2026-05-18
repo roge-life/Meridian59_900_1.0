@@ -323,6 +323,7 @@ $(SolutionDir)postbuild.bat
     <ClCompile Include="lookdlg.c" />
     <ClCompile Include="maindlg.c" />
     <ClCompile Include="map.c" />
+    <ClCompile Include="panel.c" />
     <ClCompile Include="mapfile.c" />
     <ClCompile Include="matrix.c" />
     <ClCompile Include="memmap.c" />

@@ -138,20 +138,17 @@ void InventoryBoxCreate(HWND hParent)
 				hParent, InventoryDialogProc);
 
    // Set initial floating position: right side of main window, below stats panel.
+   // Content area is 200x260; add PANEL_DRAG_H for the drag strip.
    {
+      int stats_wh = 380 + PANEL_DRAG_H;
+      int inv_ww = 200, inv_wh = 260 + PANEL_DRAG_H;
       RECT cr;
-      RECT stats_wr = {0, 0, 200, 380};
-      AdjustWindowRect(&stats_wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
-      int stats_wh = stats_wr.bottom - stats_wr.top;
-      RECT inv_wr = {0, 0, 200, 260};
-      AdjustWindowRect(&inv_wr, WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN, FALSE);
-      int inv_ww = inv_wr.right - inv_wr.left;
-      int inv_wh = inv_wr.bottom - inv_wr.top;
       GetClientRect(hParent, &cr);
       POINT pt = {cr.right - inv_ww - 4, 54 + stats_wh + 4};
       ClientToScreen(hParent, &pt);
       SetWindowPos(hwndInvDialog, HWND_TOP, pt.x, pt.y, inv_ww, inv_wh, SWP_NOACTIVATE);
    }
+   PanelRegister(hwndInvDialog);
 
    hwndInv = CreateWindow("button", NULL, 
 			  WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
@@ -220,6 +217,7 @@ void InventoryBoxCreate(HWND hParent)
  */
 void InventoryBoxDestroy(void)
 {
+   PanelUnregister(hwndInvDialog);
    DestroyWindow(hwndInv);
    DestroyWindow(hwndInvDialog);
    DestroyWindow(hwndInvScroll);
@@ -249,13 +247,13 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
 
    if (!hwndInvDialog) return;
 
-   // Panel is a free-floating popup; derive layout from its own client rect.
+   // Panel is a free-floating popup; content starts below the drag strip.
    RECT r;
    GetClientRect(hwndInvDialog, &r);
    inventory_area.x  = 0;
-   inventory_area.y  = 0;
+   inventory_area.y  = PANEL_DRAG_H;
    inventory_area.cx = r.right;
-   inventory_area.cy = r.bottom;
+   inventory_area.cy = r.bottom - PANEL_DRAG_H;
 
    InventoryComputeRowsCols();
 
@@ -284,12 +282,12 @@ void InventoryDisplayScrollbar(void)
 
    // hwndInvDialog is a floating popup — don't reposition it here.
 
-   MoveWindow(hwndInv, 0, 0,
+   MoveWindow(hwndInv, 0, inventory_area.y,
 	      inventory_area.cx - inventory_scrollbar_width, inventory_area.cy,
 	      FALSE);
 
    MoveWindow(hwndInvScroll, inventory_area.cx - inventory_scrollbar_width,
-	      0, inventory_scrollbar_width,
+	      inventory_area.y, inventory_scrollbar_width,
 	      inventory_area.cy,
 	      TRUE);
 
@@ -414,6 +412,38 @@ BOOL CALLBACK InventoryDialogProc(HWND hwnd, UINT message, UINT wParam, LONG lPa
    case WM_INITDIALOG:
       ShowWindow(hwnd, SW_HIDE);
       return FALSE;
+
+   case WM_NCHITTEST:
+      SetWindowLongPtr(hwnd, DWLP_MSGRESULT, PanelHitTest(hwnd, lParam, TRUE));
+      return TRUE;
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lParam);
+      return FALSE;
+
+   case WM_SIZE:
+   {
+      RECT r;
+      GetClientRect(hwnd, &r);
+      inventory_area.x  = 0;
+      inventory_area.y  = PANEL_DRAG_H;
+      inventory_area.cx = r.right;
+      inventory_area.cy = r.bottom - PANEL_DRAG_H;
+      InventoryComputeRowsCols();
+      InventoryDisplayScrollbar();
+      return FALSE;
+   }
+
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT r;
+      GetClientRect(hwnd, &r);
+      PanelDrawDragStrip(hdc, r.right);
+      EndPaint(hwnd, &ps);
+      return FALSE;
+   }
 
    case WM_ERASEBKGND:
       return 1;

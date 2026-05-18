@@ -54,6 +54,15 @@ EXPORTS
 	DisplayDescription
 	MapShowAllWalls
 
+; Floating panel infrastructure
+	PanelRegister
+	PanelUnregister
+	PanelMoveAll
+	PanelShowAll
+	PanelHitTest
+	PanelSnap
+	PanelDrawDragStrip
+
 ; Send messages to other modules
 	ModuleEvent
 

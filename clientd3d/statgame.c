@@ -223,10 +223,22 @@ void GameVScroll(HWND hwnd, HWND hwndCtl, UINT code, int pos)
 /****************************************************************************/
 void GameMove(HWND hwnd, int x, int y)
 {
+   static int lastX = INT_MIN, lastY = INT_MIN;
+   if (lastX != INT_MIN)
+      PanelMoveAll(x - lastX, y - lastY);
+   lastX = x;
+   lastY = y;
 }
 /****************************************************************************/
 void GameResize(HWND hwnd, UINT resize_flag, int xsize, int ysize)
 {
+   if (resize_flag == SIZE_MINIMIZED)
+   {
+      PanelShowAll(SW_HIDE);
+      return;
+   }
+   if (resize_flag == SIZE_RESTORED || resize_flag == SIZE_MAXIMIZED)
+      PanelShowAll(SW_SHOWNOACTIVATE);
    InterfaceResize(xsize, ysize);
 }
 /****************************************************************************/

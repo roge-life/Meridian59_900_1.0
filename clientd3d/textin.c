@@ -42,6 +42,52 @@ extern int border_index;
 static long CALLBACK TextInputProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam);
 static Bool TextInputKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags);
 
+static LRESULT CALLBACK ChatPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+   switch (msg)
+   {
+   case WM_NCHITTEST:
+      return PanelHitTest(hwnd, lp, TRUE);
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lp);
+      return 0;
+
+   case WM_SIZE:
+   {
+      int w = LOWORD(lp), h = HIWORD(lp);
+      int inputH = GetTextInputHeight();
+      int inputY = h - inputH;
+      int textH  = inputY - PANEL_DRAG_H;
+      if (hwndInput)
+         MoveWindow(hwndInput, 0, inputY, w, inputH * 6, TRUE);
+      // hwndText (richedit) is a child; resize it too via EditBoxResize
+      HWND hwndText = EditBoxWindow();
+      if (hwndText)
+         MoveWindow(hwndText, 0, PANEL_DRAG_H, w, max(textH, 0), TRUE);
+      return 0;
+   }
+
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT r;
+      GetClientRect(hwnd, &r);
+      /* Fill client area below the drag strip with window colour */
+      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &content, GetSysColorBrush(COLOR_WINDOW));
+      PanelDrawDragStrip(hdc, r.right);
+      EndPaint(hwnd, &ps);
+      return 0;
+   }
+
+   case WM_ERASEBKGND:
+      return 1;
+   }
+   return DefWindowProc(hwnd, msg, wp, lp);
+}
+
 static void CalculateWindowHeight(void)
 {
    HDC hdc = GetDC(GetDesktopWindow());
@@ -77,7 +123,7 @@ void TextInputCreate(HWND hParent)
          WNDCLASSEX wc;
          memset(&wc, 0, sizeof(wc));
          wc.cbSize        = sizeof(wc);
-         wc.lpfnWndProc   = DefWindowProc;
+         wc.lpfnWndProc   = ChatPanelWndProc;
          wc.hInstance     = hInst;
          wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
          wc.lpszClassName = "M59ChatPanel";
@@ -87,18 +133,15 @@ void TextInputCreate(HWND hParent)
 
       RECT cr;
       GetClientRect(hParent, &cr);
-      int chatW = cr.right;
-      RECT wr = {0, 0, chatW, CHAT_PANEL_CLIENT_H};
-      AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
-      int ww = wr.right  - wr.left;
-      int wh = wr.bottom - wr.top;
+      int ww = cr.right;
+      int wh = CHAT_PANEL_CLIENT_H + PANEL_DRAG_H;
       POINT pt = {0, cr.bottom};
       ClientToScreen(hParent, &pt);
-      // Position window so its bottom aligns with hParent's client bottom.
-      hChatPanel = CreateWindowEx(0, "M59ChatPanel", "Chat",
-         WS_POPUP | WS_CAPTION | WS_SYSMENU,
+      hChatPanel = CreateWindowEx(0, "M59ChatPanel", NULL,
+         WS_POPUP | WS_VISIBLE,
          pt.x, pt.y - wh, ww, wh,
          hParent, NULL, hInst, NULL);
+      PanelRegister(hChatPanel);
    }
 
    CalculateWindowHeight();
@@ -106,7 +149,7 @@ void TextInputCreate(HWND hParent)
       RECT chatCR;
       GetClientRect(hChatPanel, &chatCR);
       int inputH = GetTextInputHeight();
-      int inputY = CHAT_PANEL_CLIENT_H - inputH;
+      int inputY = chatCR.bottom - inputH;
       hwndInput = CreateWindow("combobox", NULL,
                   WS_CHILD | WS_BORDER | WS_VISIBLE |
                   CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL,
@@ -131,7 +174,9 @@ void TextInputCreate(HWND hParent)
 void TextInputDestroy(void)
 {
    DestroyWindow(hwndInput);
+   PanelUnregister(hChatPanel);
    DestroyWindow(hChatPanel);
+   hChatPanel = NULL;
 }
 
 void TextInputResetFont(void)

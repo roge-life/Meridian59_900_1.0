@@ -801,16 +801,35 @@ static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
 {
    switch (msg)
    {
+   case WM_NCHITTEST:
+      return PanelHitTest(hwnd, lp, TRUE);
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lp);
+      return 0;
+
+   case WM_SIZE:
+   {
+      int w = LOWORD(lp), h = HIWORD(lp);
+      AREA area = {0, PANEL_DRAG_H, w, h - PANEL_DRAG_H};
+      MapMiniSizeChanged(&area);
+      return 0;
+   }
+
    case WM_PAINT:
    {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      /* map area below drag strip */
+      RECT mapR = {0, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &mapR, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }
+
    case WM_ERASEBKGND:
       return 1;
    }
@@ -833,22 +852,24 @@ void MiniMapPanelCreate(HWND hParent)
       classRegistered = True;
    }
 
-   RECT cr, wr = {0, 0, MINIMAP_PANEL_CLIENT_W, MINIMAP_PANEL_CLIENT_H};
-   AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
-   int ww = wr.right - wr.left, wh = wr.bottom - wr.top;
+   int ww = MINIMAP_PANEL_CLIENT_W;
+   int wh = MINIMAP_PANEL_CLIENT_H + PANEL_DRAG_H;
+   RECT cr;
    GetClientRect(hParent, &cr);
    POINT pt = {8, 54};
    ClientToScreen(hParent, &pt);
-   hMiniMapPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59MiniMapPanel", "Map",
-      WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+   hMiniMapPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59MiniMapPanel", NULL,
+      WS_POPUP | WS_VISIBLE,
       pt.x, pt.y, ww, wh,
       hParent, NULL, hInst, NULL);
+   PanelRegister(hMiniMapPanel);
 }
 
 void MiniMapPanelDestroy(void)
 {
    if (hMiniMapPanel)
    {
+      PanelUnregister(hMiniMapPanel);
       DestroyWindow(hMiniMapPanel);
       hMiniMapPanel = NULL;
    }

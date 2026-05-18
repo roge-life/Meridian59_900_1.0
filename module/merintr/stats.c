@@ -39,15 +39,16 @@ void StatsCreate(HWND hParent)
   CreateDialog(hInst, MAKEINTRESOURCE(IDD_STATS), hParent, StatsWindowProc);
 
   // Set initial floating position: right side of main window, below toolbar.
+  // Content area is 200x380; add PANEL_DRAG_H for the drag strip.
   {
-     RECT cr, wr = {0, 0, 200, 380};
-     AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
-     int ww = wr.right - wr.left, wh = wr.bottom - wr.top;
+     int ww = 200, wh = 380 + PANEL_DRAG_H;
+     RECT cr;
      GetClientRect(hParent, &cr);
      POINT pt = {cr.right - ww - 4, 54};
      ClientToScreen(hParent, &pt);
      SetWindowPos(hStats, HWND_TOP, pt.x, pt.y, ww, wh, SWP_NOACTIVATE);
   }
+  PanelRegister(hStats);
 
   current_group = STATS_INVENTORY;   // Group to start displaying
   group_type = GROUP_NONE;
@@ -62,12 +63,44 @@ void StatsCreate(HWND hParent)
 BOOL CALLBACK StatsWindowProc(HWND hwnd, UINT message, UINT wParam, LONG lParam)
 {
    const DRAWITEMSTRUCT *lpdis;
-  
+
    switch (message)
    {
    case WM_INITDIALOG:
       hStats = hwnd;
       return FALSE;
+
+   case WM_NCHITTEST:
+      SetWindowLongPtr(hwnd, DWLP_MSGRESULT, PanelHitTest(hwnd, lParam, TRUE));
+      return TRUE;
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lParam);
+      return FALSE;
+
+   case WM_SIZE:
+   {
+      RECT r;
+      GetClientRect(hwnd, &r);
+      stats_area.x  = 0;
+      stats_area.y  = PANEL_DRAG_H;
+      stats_area.cx = r.right;
+      stats_area.cy = r.bottom - PANEL_DRAG_H;
+      StatsMoveButtons();
+      StatsMove();
+      return FALSE;
+   }
+
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT r;
+      GetClientRect(hwnd, &r);
+      PanelDrawDragStrip(hdc, r.right);
+      EndPaint(hwnd, &ps);
+      return FALSE;
+   }
 
    case WM_ERASEBKGND:
       if (StatsGetCurrentGroup() == STATS_SPELLS
@@ -135,6 +168,7 @@ void StatsDestroy(void)
    StatsDestroyGroup();
    StatsDestroyButtons();
    stats = NULL;     // Actual list freed by cache
+   PanelUnregister(hStats);
    DestroyWindow(hStats);
 
    StatButtonsDestroy();
@@ -149,13 +183,13 @@ void StatsResize(int xsize, int ysize, AREA *view)
 {
    if (!hStats) return;
 
-   // Panel is a free-floating popup; derive layout from its own client rect.
+   // Panel is a free-floating popup; content starts below the drag strip.
    RECT r;
    GetClientRect(hStats, &r);
    stats_area.x  = 0;
-   stats_area.y  = 0;
+   stats_area.y  = PANEL_DRAG_H;
    stats_area.cx = r.right;
-   stats_area.cy = r.bottom;
+   stats_area.cy = r.bottom - PANEL_DRAG_H;
 
    ShowWindow(hStats, SW_SHOWNORMAL);
    StatsMoveButtons();

@@ -30,7 +30,8 @@ static WNDPROC lpfnDefEnchantmentProc; // Default window procedure
 static HWND hEnchantPanel;             // Floating popup that parents all enchantment buttons
 
 #define ENCHANT_PANEL_W 220
-#define ENCHANT_PANEL_H (2 * (ENCHANT_SIZE + ENCHANT_BORDER))
+#define ENCHANT_PANEL_CONTENT_H (2 * (ENCHANT_SIZE + ENCHANT_BORDER))
+#define ENCHANT_PANEL_H (PANEL_DRAG_H + ENCHANT_PANEL_CONTENT_H)
 
 int player_enchant_x;           // X position of left side of first player enchantment
 int player_enchant_y;           // X position of left side of first player enchantment
@@ -48,6 +49,49 @@ static Enchantment *EnchantmentDestroy(Enchantment *e);
 static Bool CompareIdEnchantment(void *idnum, void *e);
 static Enchantment *EnchantmentFindByWindow(HWND hwnd);
 static long CALLBACK EnchantmentProc(HWND hwnd, UINT message, UINT wParam, LONG lParam);
+static LRESULT CALLBACK EnchantPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+   switch (msg)
+   {
+   case WM_NCHITTEST:
+      return PanelHitTest(hwnd, lp, TRUE);
+
+   case WM_WINDOWPOSCHANGING:
+      PanelSnap(hwnd, (WINDOWPOS *)lp);
+      return 0;
+
+   case WM_SIZE:
+   {
+      int w = LOWORD(lp), h = HIWORD(lp);
+      player_enchant_x      = 0;
+      player_enchant_y      = PANEL_DRAG_H;
+      player_enchant_right  = w;
+      player_enchant_bottom = h;
+      room_enchant_x        = w;
+      room_enchant_y        = PANEL_DRAG_H;
+      room_enchant_left     = 0;
+      EnchantmentsMove();
+      return 0;
+   }
+
+   case WM_ERASEBKGND:
+      return 1;
+
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT r;
+      GetClientRect(hwnd, &r);
+      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &content, GetSysColorBrush(COLOR_BTNFACE));
+      PanelDrawDragStrip(hdc, r.right);
+      EndPaint(hwnd, &ps);
+      return 0;
+   }
+   }
+   return DefWindowProc(hwnd, msg, wp, lp);
+}
 /****************************************************************************/
 /*
  * EnchantmentsInit:  Called at startup.
@@ -58,21 +102,37 @@ void EnchantmentsInit(void)
    player_enchantments = NULL;
 
    // Create a floating panel to host all enchantment icon buttons.
-   RECT cr;
-   GetClientRect(cinfo->hMain, &cr);
-   POINT pt = {cr.right - ENCHANT_PANEL_W - 8, 54 + 64 + 6};
-   ClientToScreen(cinfo->hMain, &pt);
-   hEnchantPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "static", NULL,
-      WS_POPUP | WS_VISIBLE | WS_BORDER,
-      pt.x, pt.y, ENCHANT_PANEL_W, ENCHANT_PANEL_H,
-      cinfo->hMain, NULL, hInst, NULL);
+   {
+      static Bool classRegistered = False;
+      if (!classRegistered)
+      {
+         WNDCLASSEX wc;
+         memset(&wc, 0, sizeof(wc));
+         wc.cbSize        = sizeof(wc);
+         wc.lpfnWndProc   = EnchantPanelWndProc;
+         wc.hInstance     = hInst;
+         wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+         wc.lpszClassName = "M59EnchantPanel";
+         RegisterClassEx(&wc);
+         classRegistered = True;
+      }
+      RECT cr;
+      GetClientRect(cinfo->hMain, &cr);
+      POINT pt = {cr.right - ENCHANT_PANEL_W - 8, 54 + 64 + 6};
+      ClientToScreen(cinfo->hMain, &pt);
+      hEnchantPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59EnchantPanel", NULL,
+         WS_POPUP | WS_VISIBLE,
+         pt.x, pt.y, ENCHANT_PANEL_W, ENCHANT_PANEL_H,
+         cinfo->hMain, NULL, hInst, NULL);
+      PanelRegister(hEnchantPanel);
+   }
 
    player_enchant_x      = 0;
-   player_enchant_y      = 0;
+   player_enchant_y      = PANEL_DRAG_H;
    player_enchant_right  = ENCHANT_PANEL_W;
    player_enchant_bottom = ENCHANT_PANEL_H;
    room_enchant_x        = ENCHANT_PANEL_W;
-   room_enchant_y        = 0;
+   room_enchant_y        = PANEL_DRAG_H;
    room_enchant_left     = 0;
 
    RequestEnchantments(ENCHANT_PLAYER);
@@ -85,6 +145,12 @@ void EnchantmentsDestroy(void)
 {
    room_enchantments   = EnchantmentListDestroy(room_enchantments);
    player_enchantments = EnchantmentListDestroy(player_enchantments);
+   if (hEnchantPanel)
+   {
+      PanelUnregister(hEnchantPanel);
+      DestroyWindow(hEnchantPanel);
+      hEnchantPanel = NULL;
+   }
 }
 /****************************************************************************/
 /*
@@ -176,14 +242,18 @@ void EnchantmentsResetData(void)
 void EnchantmentsResize(int xsize, int ysize, AREA *view)
 {
    // Enchantment buttons are children of hEnchantPanel; positions are panel-relative.
-   player_enchant_x      = 0;
-   player_enchant_y      = 0;
-   player_enchant_right  = ENCHANT_PANEL_W;
-   player_enchant_bottom = ENCHANT_PANEL_H;
-   room_enchant_x        = ENCHANT_PANEL_W;
-   room_enchant_y        = 0;
-   room_enchant_left     = 0;
-
+   if (hEnchantPanel)
+   {
+      RECT r;
+      GetClientRect(hEnchantPanel, &r);
+      player_enchant_x      = 0;
+      player_enchant_y      = PANEL_DRAG_H;
+      player_enchant_right  = r.right;
+      player_enchant_bottom = r.bottom;
+      room_enchant_x        = r.right;
+      room_enchant_y        = PANEL_DRAG_H;
+      room_enchant_left     = 0;
+   }
    EnchantmentsMove();
 }
 /************************************************************************/
