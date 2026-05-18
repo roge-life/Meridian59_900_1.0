@@ -279,8 +279,7 @@ Bool EnchantmentDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
    Enchantment *e;
    AREA area;
    RECT r;
-   POINT p;
-   
+
    switch (lpdis->itemAction)
    {
    case ODA_SELECT:
