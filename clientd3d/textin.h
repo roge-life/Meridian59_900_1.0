@@ -20,6 +20,7 @@ extern AREA input_area;
 void TextInputCreate(HWND hParent);
 void TextInputDestroy(void);
 void TextInputResize(int xsize, int ysize, AREA view);
+HWND TextInputGetChatPanel(void);
 M59EXPORT void TextInputSetFocus(Bool forward);
 void TextInputSetText(char *text, Bool focus);
 void TextInputDrawBorder(void);

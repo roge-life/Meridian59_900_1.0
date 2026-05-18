@@ -30,9 +30,16 @@ static long CALLBACK UserAreaProc(HWND hwnd, UINT message, UINT wParam, LONG lPa
  */
 void UserAreaCreate(void)
 {
-   hUser = CreateWindow("button", NULL,
-			WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-			0, 0, 0, 0, cinfo->hMain, (HMENU) IDC_USERAREA, hInst, NULL);
+   // Create as a floating popup so it sits above the D3D viewport.
+   RECT cr;
+   GetClientRect(cinfo->hMain, &cr);
+   POINT pt = {cr.right - USERAREA_WIDTH - 8, 54};
+   ClientToScreen(cinfo->hMain, &pt);
+
+   hUser = CreateWindowEx(WS_EX_TOOLWINDOW, "button", NULL,
+			WS_POPUP | WS_VISIBLE | WS_BORDER | BS_OWNERDRAW,
+			pt.x, pt.y, USERAREA_WIDTH, USERAREA_HEIGHT,
+			cinfo->hMain, (HMENU) IDC_USERAREA, hInst, NULL);
    lpfnDefUserProc = SubclassWindow(hUser, UserAreaProc);
 }
 /************************************************************************/
@@ -86,12 +93,11 @@ void UserAreaRedraw(void)
  */
 void UserAreaResize(int xsize, int ysize, AREA *view)
 {
-   user_area.x  = view->x + view->cx + LEFT_BORDER + RIGHT_BORDER + MAPTREAT_WIDTH;
-   user_area.y  = TOP_BORDER + EDGETREAT_HEIGHT;
+   // User area is a floating popup; position is user-controlled after initial placement.
+   user_area.x  = 0;
+   user_area.y  = 0;
    user_area.cx = USERAREA_WIDTH;
    user_area.cy = USERAREA_HEIGHT;
-
-   MoveWindow(hUser, user_area.x, user_area.y, user_area.cx, user_area.cy, FALSE);
 }
 
 /************************************************************************/

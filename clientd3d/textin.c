@@ -18,6 +18,11 @@ AREA input_area;
 
 static HWND hwndInput;            // Text input window handle
 static WNDPROC lpfnDefInputProc;  // Default text box message handler
+static HWND hChatPanel;           // Floating chat popup (parents hwndInput + hwndText)
+
+#define CHAT_PANEL_CLIENT_H 130   // Client-area height of the chat popup
+
+HWND TextInputGetChatPanel(void) { return hChatPanel; }
 static int inputHeight = TEXTINPUT_HEIGHT;
 
 static keymap textin_key_table[] = {
@@ -64,12 +69,50 @@ void TextInputCreate(HWND hParent)
 {
    HWND hwndEdit;
 
+   // Create the floating chat popup panel.
+   {
+      static Bool classRegistered = False;
+      if (!classRegistered)
+      {
+         WNDCLASSEX wc;
+         memset(&wc, 0, sizeof(wc));
+         wc.cbSize        = sizeof(wc);
+         wc.lpfnWndProc   = DefWindowProc;
+         wc.hInstance     = hInst;
+         wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
+         wc.lpszClassName = "M59ChatPanel";
+         RegisterClassEx(&wc);
+         classRegistered = True;
+      }
+
+      RECT cr;
+      GetClientRect(hParent, &cr);
+      int chatW = cr.right;
+      RECT wr = {0, 0, chatW, CHAT_PANEL_CLIENT_H};
+      AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
+      int ww = wr.right  - wr.left;
+      int wh = wr.bottom - wr.top;
+      POINT pt = {0, cr.bottom};
+      ClientToScreen(hParent, &pt);
+      // Position window so its bottom aligns with hParent's client bottom.
+      hChatPanel = CreateWindowEx(0, "M59ChatPanel", "Chat",
+         WS_POPUP | WS_CAPTION | WS_SYSMENU,
+         pt.x, pt.y - wh, ww, wh,
+         hParent, NULL, hInst, NULL);
+   }
+
    CalculateWindowHeight();
-   hwndInput = CreateWindow("combobox", NULL, 
-			    WS_CHILD | WS_BORDER | WS_VISIBLE |
-			    CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL,
-			    0, 0, 0, GetTextInputHeight(), 
-			    hParent, (HMENU) IDC_TEXTINPUT, hInst, NULL);
+   {
+      RECT chatCR;
+      GetClientRect(hChatPanel, &chatCR);
+      int inputH = GetTextInputHeight();
+      int inputY = CHAT_PANEL_CLIENT_H - inputH;
+      hwndInput = CreateWindow("combobox", NULL,
+                  WS_CHILD | WS_BORDER | WS_VISIBLE |
+                  CBS_AUTOHSCROLL | CBS_DROPDOWN | WS_VSCROLL,
+                  0, inputY, chatCR.right, inputH * 6,
+                  hChatPanel, (HMENU) IDC_TEXTINPUT, hInst, NULL);
+   }
 
    SetWindowFont(hwndInput, GetFont(FONT_INPUT), TRUE);
    CalculateWindowHeight();
@@ -88,6 +131,7 @@ void TextInputCreate(HWND hParent)
 void TextInputDestroy(void)
 {
    DestroyWindow(hwndInput);
+   DestroyWindow(hChatPanel);
 }
 
 void TextInputResetFont(void)

@@ -782,10 +782,79 @@ void MapShowAllWalls(room_type *room, Bool show)
    }
 }
 
+static HWND hMiniMapPanel = NULL;
+
 void MapMiniSizeChanged(AREA *newArea)
 {
    fMapCacheValid = FALSE;
+   if (hMiniMapPanel)
+      InvalidateRect(hMiniMapPanel, NULL, FALSE);
 }
+
+/************************************************************************/
+/* Floating minimap panel */
+
+#define MINIMAP_PANEL_CLIENT_W 220
+#define MINIMAP_PANEL_CLIENT_H 180
+
+static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+   switch (msg)
+   {
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT r;
+      GetClientRect(hwnd, &r);
+      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      EndPaint(hwnd, &ps);
+      return 0;
+   }
+   case WM_ERASEBKGND:
+      return 1;
+   }
+   return DefWindowProc(hwnd, msg, wp, lp);
+}
+
+void MiniMapPanelCreate(HWND hParent)
+{
+   static Bool classRegistered = False;
+   if (!classRegistered)
+   {
+      WNDCLASSEX wc;
+      memset(&wc, 0, sizeof(wc));
+      wc.cbSize        = sizeof(wc);
+      wc.lpfnWndProc   = MiniMapPanelWndProc;
+      wc.hInstance     = hInst;
+      wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
+      wc.lpszClassName = "M59MiniMapPanel";
+      RegisterClassEx(&wc);
+      classRegistered = True;
+   }
+
+   RECT cr, wr = {0, 0, MINIMAP_PANEL_CLIENT_W, MINIMAP_PANEL_CLIENT_H};
+   AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
+   int ww = wr.right - wr.left, wh = wr.bottom - wr.top;
+   GetClientRect(hParent, &cr);
+   POINT pt = {8, 54};
+   ClientToScreen(hParent, &pt);
+   hMiniMapPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59MiniMapPanel", "Map",
+      WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_VISIBLE,
+      pt.x, pt.y, ww, wh,
+      hParent, NULL, hInst, NULL);
+}
+
+void MiniMapPanelDestroy(void)
+{
+   if (hMiniMapPanel)
+   {
+      DestroyWindow(hMiniMapPanel);
+      hMiniMapPanel = NULL;
+   }
+}
+
+HWND MiniMapPanelGetHwnd(void) { return hMiniMapPanel; }
 
 static POINT cp;
 static RECT rcMap,rcPage,rcMapBox;

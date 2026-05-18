@@ -25,14 +25,70 @@
 
 #define STAT_TOOLTIP_BASE 100  // Base for tooltip IDs
 
+#define STATBARS_PANEL_W 200
+#define STATBARS_PANEL_H (4 * (STAT_ICON_HEIGHT + STATS_MAIN_SPACING) + 4)
+
+static HWND hStatBarsPanel = NULL;
 static list_type main_stats; // List of main stats (also kept in stat cache)
 
-int stat_x;           // x position of left of main stats
-int stat_bar_x;       // x position of left stats bars
-int stat_width;       // Width of graph bars 
+int stat_x;           // x position of left of main stats (panel-relative)
+int stat_bar_x;       // x position of left stats bars (panel-relative)
+int stat_width;       // Width of graph bars
 
 static void StatsMainMove(void);
 static void StatsMainSetColor(Statistic *s);
+
+static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam)
+{
+   if (msg == WM_ERASEBKGND)
+      return 1;
+   if (msg == WM_PAINT)
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      FillRect(hdc, &ps.rcPaint, GetSysColorBrush(COLOR_BTNFACE));
+      EndPaint(hwnd, &ps);
+      StatsMainRedraw();
+      return 0;
+   }
+   return DefWindowProc(hwnd, msg, wParam, lParam);
+}
+/************************************************************************/
+/*
+ * StatsMainPanelCreate:  Create the floating stat-bars popup window.
+ */
+void StatsMainPanelCreate(HWND hParent)
+{
+   WNDCLASSEX wc;
+   memset(&wc, 0, sizeof(wc));
+   wc.cbSize        = sizeof(WNDCLASSEX);
+   wc.lpfnWndProc   = StatBarsPanelWndProc;
+   wc.hInstance     = hInst;
+   wc.hbrBackground = (HBRUSH)(COLOR_BTNFACE + 1);
+   wc.lpszClassName = "M59StatBarsPanel";
+   RegisterClassEx(&wc);
+
+   RECT cr;
+   GetClientRect(hParent, &cr);
+   POINT pt = {8, 54};
+   ClientToScreen(hParent, &pt);
+   hStatBarsPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "M59StatBarsPanel", NULL,
+      WS_POPUP | WS_VISIBLE | WS_BORDER,
+      pt.x, pt.y, STATBARS_PANEL_W, STATBARS_PANEL_H,
+      hParent, NULL, hInst, NULL);
+}
+/************************************************************************/
+/*
+ * StatsMainPanelDestroy:  Destroy the floating stat-bars popup window.
+ */
+void StatsMainPanelDestroy(void)
+{
+   if (hStatBarsPanel)
+   {
+      DestroyWindow(hStatBarsPanel);
+      hStatBarsPanel = NULL;
+   }
+}
 /************************************************************************/
 /*
  * StatsMainReceive:  We received main group of stats from server.
@@ -51,35 +107,34 @@ void StatsMainReceive(list_type stats)
    pinfo.vigor = MIN_VIGOR;   // Initialize for changing color of bar graph
    ti.cbSize = sizeof(TOOLINFO);
    ti.uFlags = 0;
-   ti.hwnd   = cinfo->hMain;
+   ti.hwnd   = hStatBarsPanel;
    ti.hinst  = hInst;
    ti.lpszText = 0;
    count = 0;
 
-   // Create graph controls for integer stats
-   height = STAT_ICON_HEIGHT + STATS_MAIN_SPACING;	 
-   //y = ENCHANT_SIZE + 2 * ENCHANT_BORDER - 1 + EDGETREAT_HEIGHT;
-   y = ENCHANT_BORDER + EDGETREAT_HEIGHT + ((USERAREA_HEIGHT - (STAT_ICON_HEIGHT * 3)) / 2);
+   // Create graph controls for integer stats, positioned within the panel
+   height = STAT_ICON_HEIGHT + STATS_MAIN_SPACING;
+   y = 2;
    for (l = stats; l != NULL; l = l->next)
    {
       Statistic *s = (Statistic *) (l->data);
-      
+
       s->y = y;
       s->cy = height;
       y += height;
-      
+
       if (s->numeric.tag != STAT_INT)
          continue;
-      
+
       if (s->num == STAT_XP)
          s->hControl = CreateWindow(GraphCtlGetClassName(), NULL,
             WS_CHILD | WS_VISIBLE | GCS_LIMITBAR | GCS_NUMBER | GCS_XP,
-            0, 0, 0, 0, cinfo->hMain,
+            0, 0, 0, 0, hStatBarsPanel,
             NULL, hInst, NULL);
       else
          s->hControl = CreateWindow(GraphCtlGetClassName(), NULL,
             WS_CHILD | WS_VISIBLE | GCS_LIMITBAR | GCS_NUMBER,
-            0, 0, 0, 0, cinfo->hMain,
+            0, 0, 0, 0, hStatBarsPanel,
             NULL, hInst, NULL);
 
       StatsMainSetColor(s);
@@ -105,7 +160,7 @@ void StatsMainDestroy(void)
    int count = 0;
    
    ti.cbSize = sizeof(TOOLINFO);
-   ti.hwnd   = cinfo->hMain;
+   ti.hwnd   = hStatBarsPanel;
 
    for (l = main_stats; l != NULL; l = l->next)
    {
@@ -168,12 +223,14 @@ void StatsMainRedraw(void)
    AREA a, b;
    object_node *obj;   // Fake object node for DrawObject
 
-   hdc = GetDC(cinfo->hMain);
+   if (!hStatBarsPanel) return;
+
+   hdc = GetDC(hStatBarsPanel);
 
    obj = ObjectGetBlank();
 
    a.x    = stat_x;
-   a.cx   = STAT_ICON_HEIGHT;
+   a.cx   = STAT_ICON_WIDTH;
 
    for (l = main_stats; l != NULL; l = l->next)
    {
@@ -184,8 +241,9 @@ void StatsMainRedraw(void)
 
       obj->icon_res = s->name_res;
 
-      OffscreenWindowBackground(NULL, a.x, a.y, a.cx, a.cy);
-      DrawStretchedObjectDefault(hdc, obj, &a, NULL); 
+      RECT fillr = {a.x, a.y, a.x + a.cx, a.y + a.cy};
+      FillRect(hdc, &fillr, GetSysColorBrush(COLOR_BTNFACE));
+      DrawStretchedObjectDefault(hdc, obj, &a, NULL);
       GdiFlush();
 
       b.x  = stat_bar_x;
@@ -196,7 +254,7 @@ void StatsMainRedraw(void)
    }
 
    ObjectDestroyAndFree(obj);
-   ReleaseDC(cinfo->hMain, hdc);
+   ReleaseDC(hStatBarsPanel, hdc);
 }
 /************************************************************************/
 /*
@@ -204,9 +262,9 @@ void StatsMainRedraw(void)
  */
 void StatsMainResize(int xsize, int ysize, AREA *view)
 {
-   stat_x = view->x + view->cx + LEFT_BORDER + USERAREA_WIDTH + RIGHT_BORDER + MAPTREAT_WIDTH;
-   stat_bar_x = stat_x + STAT_ICON_WIDTH + RIGHT_BORDER;
-   stat_width = xsize - stat_bar_x - RIGHT_BORDER - EDGETREAT_WIDTH - MAPTREAT_WIDTH - 4;
+   stat_x = 2;
+   stat_bar_x = stat_x + STAT_ICON_WIDTH + 2;
+   stat_width = STATBARS_PANEL_W - stat_bar_x - 2;
    StatsMainMove();
 }
 /************************************************************************/
@@ -221,7 +279,7 @@ void StatsMainMove(void)
    char buf[21];
 
    ti.cbSize = sizeof(TOOLINFO);
-   ti.hwnd   = cinfo->hMain;
+   ti.hwnd   = hStatBarsPanel;
    ti.uFlags = 0;
    ti.hinst  = hInst;
 

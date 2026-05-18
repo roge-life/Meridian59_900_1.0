@@ -27,6 +27,10 @@ static list_type room_enchantments;    // List of current enchantments on the ro
 static list_type player_enchantments;  // List of current enchantments on the player
 
 static WNDPROC lpfnDefEnchantmentProc; // Default window procedure
+static HWND hEnchantPanel;             // Floating popup that parents all enchantment buttons
+
+#define ENCHANT_PANEL_W 220
+#define ENCHANT_PANEL_H (2 * (ENCHANT_SIZE + ENCHANT_BORDER))
 
 int player_enchant_x;           // X position of left side of first player enchantment
 int player_enchant_y;           // X position of left side of first player enchantment
@@ -52,6 +56,25 @@ void EnchantmentsInit(void)
 {
    room_enchantments = NULL;
    player_enchantments = NULL;
+
+   // Create a floating panel to host all enchantment icon buttons.
+   RECT cr;
+   GetClientRect(cinfo->hMain, &cr);
+   POINT pt = {cr.right - ENCHANT_PANEL_W - 8, 54 + 64 + 6};
+   ClientToScreen(cinfo->hMain, &pt);
+   hEnchantPanel = CreateWindowEx(WS_EX_TOOLWINDOW, "static", NULL,
+      WS_POPUP | WS_VISIBLE | WS_BORDER,
+      pt.x, pt.y, ENCHANT_PANEL_W, ENCHANT_PANEL_H,
+      cinfo->hMain, NULL, hInst, NULL);
+
+   player_enchant_x      = 0;
+   player_enchant_y      = 0;
+   player_enchant_right  = ENCHANT_PANEL_W;
+   player_enchant_bottom = ENCHANT_PANEL_H;
+   room_enchant_x        = ENCHANT_PANEL_W;
+   room_enchant_y        = 0;
+   room_enchant_left     = 0;
+
    RequestEnchantments(ENCHANT_PLAYER);
 }
 /****************************************************************************/
@@ -73,7 +96,7 @@ void EnchantmentAdd(BYTE type, object_node *obj)
 
    e = (Enchantment *) SafeMalloc(sizeof(Enchantment));
    e->hwnd = CreateWindow("button", NULL, WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
-			  0, 0, 0, 0, cinfo->hMain, (HMENU) IDC_ENCHANTMENT, hInst, NULL);
+			  0, 0, 0, 0, hEnchantPanel, (HMENU) IDC_ENCHANTMENT, hInst, NULL);
    lpfnDefEnchantmentProc = SubclassWindow(e->hwnd, EnchantmentProc);
 
    TooltipAddWindow(e->hwnd, hInst, (int) LPSTR_TEXTCALLBACK);
@@ -152,77 +175,16 @@ void EnchantmentsResetData(void)
  */
 void EnchantmentsResize(int xsize, int ysize, AREA *view)
 {
-   RECT rcOffLimits, rcToolbar;
-//	AREA areaMiniMap;
+   // Enchantment buttons are children of hEnchantPanel; positions are panel-relative.
+   player_enchant_x      = 0;
+   player_enchant_y      = 0;
+   player_enchant_right  = ENCHANT_PANEL_W;
+   player_enchant_bottom = ENCHANT_PANEL_H;
+   room_enchant_x        = ENCHANT_PANEL_W;
+   room_enchant_y        = 0;
+   room_enchant_left     = 0;
 
-//   player_enchant_x     = view->x + view->cx + LEFT_BORDER + USERAREA_WIDTH + LEFT_BORDER;
-//   player_enchant_right = xsize - RIGHT_BORDER;
-
-//   if (cinfo->config->large_area)
-   if (0)
-   {
-		ToolbarGetUnionRect(&rcToolbar);
-
-		// evil hack, but it's not my fault...
-		// this is the actual size of the toolbar, and as of latest version it's always right
-		// if toolbar resizing actually worked properly we wouldn't have to do this
-		if (cinfo->config->toolbar)
-		{
-			if (rcToolbar.right != 146)
-				rcToolbar.right = 146;
-		}
-		else
-			rcToolbar.right = TOOLBAR_X;
-
-		//player_enchant_x     = rcToolbar.right + TOOLBAR_BUTTON_HEIGHT + TOOLBAR_SEPARATOR_WIDTH * 2;
-		player_enchant_x     = rcToolbar.right + TOOLBAR_SEPARATOR_WIDTH;
-		if (cinfo->config->lagbox)
-			player_enchant_x += TOOLBAR_BUTTON_HEIGHT + TOOLBAR_SEPARATOR_WIDTH;
-
-		player_enchant_right = xsize - RIGHT_BORDER;
-		player_enchant_y = TOOLBAR_Y;
-   }
-   else
-   {
-	   player_enchant_x     = view->x + view->cx + LEFT_BORDER + LEFT_BORDER + 2;
-	   player_enchant_right = xsize - RIGHT_BORDER - ENCHANT_SIZE;
-	   player_enchant_y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT +
-		   ENCHANT_BORDER + MAPTREAT_HEIGHT;
-//	   player_enchant_y += ENCHANT_SIZE;
-
-	   if (cinfo->config->large_area)
-		   player_enchant_bottom = player_enchant_y +
-			   ((ENCHANT_SIZE + ENCHANT_BORDER) * 2);
-	   else
-		   player_enchant_bottom = player_enchant_y +
-			   ((ENCHANT_SIZE + ENCHANT_BORDER) * 2);
-   }
-
-   room_enchant_x = view->x + view->cx;
-   if (cinfo->config->toolbar)
-     room_enchant_y = TOOLBAR_Y + (TOOLBAR_BUTTON_HEIGHT - ENCHANT_SIZE) / 2;
-   else room_enchant_y = ENCHANT_BORDER + EDGETREAT_HEIGHT;
-
-   room_enchant_left = view->x;
-   if (cinfo->config->toolbar)
-   {
-      ToolbarGetUnionRect(&rcOffLimits);
-      room_enchant_left = rcOffLimits.right;
-   }
-   if (cinfo->config->lagbox)
-   {
-      Lagbox_GetRect(&rcOffLimits);
-      room_enchant_left = rcOffLimits.right;
-   }
-
-/*  ajw experimenting xxx
-	CopyCurrentAreaMiniMap( &areaMiniMap );
-	room_enchant_x = areaMiniMap.x + areaMiniMap.cx;
-	room_enchant_y = areaMiniMap.y + ENCHANT_BORDER;
-	room_enchant_left = areaMiniMap.x;
-*/
-	   
-	EnchantmentsMove();
+   EnchantmentsMove();
 }
 /************************************************************************/
 /*
@@ -317,8 +279,7 @@ Bool EnchantmentDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
    Enchantment *e;
    AREA area;
    RECT r;
-   POINT p;
-   
+
    switch (lpdis->itemAction)
    {
    case ODA_SELECT:
@@ -327,12 +288,9 @@ Bool EnchantmentDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
       if (e == NULL)
 	 break;
 
-      // Draw window background
-      GetWindowRect(lpdis->hwndItem, &r);
-      p.x = r.left;
-      p.y = r.top;
-      ScreenToClient(cinfo->hMain, &p);
-      OffscreenWindowBackground(NULL, p.x, p.y, ENCHANT_SIZE, ENCHANT_SIZE);
+      // Fill enchantment background with panel background color.
+      GetClientRect(lpdis->hwndItem, &r);
+      FillRect(lpdis->hDC, &r, GetSysColorBrush(COLOR_BTNFACE));
 
       area.x = area.y = 0;
       area.cx = area.cy = ENCHANT_SIZE;

@@ -58,6 +58,7 @@ void InterfaceInit(void)
    AliasInit();
    CmdAliasInit();
    EnchantmentsInit();
+   StatsMainPanelCreate(cinfo->hMain);
 
    GetClientRect(cinfo->hMain, &r);
    CopyCurrentView(&area);
@@ -79,6 +80,7 @@ void InterfaceExit(void)
    InventoryBoxDestroy();
    UserAreaDestroy();
    StatsMainDestroy();  // must get rid of main stat windows before clearing all stats
+   StatsMainPanelDestroy();
    StatsDestroy();
    EnchantmentsDestroy();
    AbortGuildDialogs();

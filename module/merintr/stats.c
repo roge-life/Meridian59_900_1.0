@@ -37,12 +37,23 @@ static void StatRedraw(Statistic *s);
 void StatsCreate(HWND hParent)
 {
   CreateDialog(hInst, MAKEINTRESOURCE(IDD_STATS), hParent, StatsWindowProc);
-  
+
+  // Set initial floating position: right side of main window, below toolbar.
+  {
+     RECT cr, wr = {0, 0, 200, 380};
+     AdjustWindowRect(&wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
+     int ww = wr.right - wr.left, wh = wr.bottom - wr.top;
+     GetClientRect(hParent, &cr);
+     POINT pt = {cr.right - ww - 4, 54};
+     ClientToScreen(hParent, &pt);
+     SetWindowPos(hStats, HWND_TOP, pt.x, pt.y, ww, wh, SWP_NOACTIVATE);
+  }
+
   current_group = STATS_INVENTORY;   // Group to start displaying
   group_type = GROUP_NONE;
   StatCacheCreate();
   StatButtonsCreate();
-  RequestStatGroups();   
+  RequestStatGroups();
 }
 /************************************************************************/
 /* 
@@ -136,30 +147,17 @@ void StatsDestroy(void)
  */
 void StatsResize(int xsize, int ysize, AREA *view)
 {
-   AREA minimap;
-   CopyCurrentAreaMiniMap(&minimap);
+   if (!hStats) return;
 
-   stats_area.x = view->x + view->cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
-   stats_area.cx = min(xsize - stats_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
+   // Panel is a free-floating popup; derive layout from its own client rect.
+   RECT r;
+   GetClientRect(hStats, &r);
+   stats_area.x  = 0;
+   stats_area.y  = 0;
+   stats_area.cx = r.right;
+   stats_area.cy = r.bottom;
 
-   // Start below the personal enchantments area.
-   stats_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER + MAPTREAT_HEIGHT
-      + (ENCHANT_SIZE + ENCHANT_BORDER) * 2 + MAP_STATS_GAP_HEIGHT;
-
-   // If minimap shares our column (stacked), end just above it.
-   // Otherwise (side-by-side) fill to the panel bottom (independent of game-view height).
-   if (minimap.x < stats_area.x + stats_area.cx)
-      stats_area.cy = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT
-         - 3 * HIGHLIGHT_THICKNESS - stats_area.y;
-   else
-   {
-      int panel_bottom = ysize - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-      stats_area.cy = panel_bottom - STATS_BOTTOM_GAP_HEIGHT - stats_area.y;
-   }
-
-   MoveWindow(hStats, stats_area.x, stats_area.y, stats_area.cx, stats_area.cy, FALSE);
    ShowWindow(hStats, SW_SHOWNORMAL);
-
    StatsMoveButtons();
    StatsMove();
 }
@@ -171,18 +169,7 @@ void StatsSetFocus(Bool forward)
 /************************************************************************/
 void StatsDrawBorder(void)
 {
-	HWND hFocus = GetFocus();
-
-	AREA areaXXXTemp;
-	areaXXXTemp.x = stats_area.x - HIGHLIGHT_THICKNESS;
-	areaXXXTemp.y = stats_area.y - HIGHLIGHT_THICKNESS;
-	areaXXXTemp.cx = stats_area.cx + 2 * HIGHLIGHT_THICKNESS;
-	areaXXXTemp.cy = stats_area.cy + 2 * HIGHLIGHT_THICKNESS;
-
-   // Check child windows & self
-	if ( hFocus == hStats || IsChild(hStats, hFocus) || hFocus == GetHwndInv() )
-		DrawBorder(&areaXXXTemp, HIGHLIGHT_INDEX, NULL);
-	else DrawBorder(&areaXXXTemp, -1, NULL);
+   // Panel is a floating popup with its own OS border; no hMain border needed.
 }
 /************************************************************************/
 /*
