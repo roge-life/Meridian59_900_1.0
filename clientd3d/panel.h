@@ -32,5 +32,8 @@ M59EXPORT void    PanelShowAll(int nCmdShow);
 M59EXPORT LRESULT PanelHitTest(HWND hwnd, LPARAM lParam, BOOL canResize);
 M59EXPORT void    PanelSnap(HWND hwnd, WINDOWPOS *wp);
 M59EXPORT void    PanelDrawDragStrip(HDC hdc, int width);
+M59EXPORT BOOL    PanelIsHovered(HWND hwnd);
+M59EXPORT void    PanelTrackHover(HWND hwnd);
+M59EXPORT void    PanelLeaveHover(HWND hwnd);
 
 #endif /* _PANEL_H */

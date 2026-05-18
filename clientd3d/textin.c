@@ -68,16 +68,23 @@ static LRESULT CALLBACK ChatPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
       return 0;
    }
 
+   case WM_MOUSEMOVE:
+      PanelTrackHover(hwnd);
+      return 0;
+
+   case WM_MOUSELEAVE:
+      PanelLeaveHover(hwnd);
+      return 0;
+
    case WM_PAINT:
    {
       PAINTSTRUCT ps;
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      /* Fill client area below the drag strip with window colour */
-      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
-      FillRect(hdc, &content, GetSysColorBrush(COLOR_WINDOW));
-      PanelDrawDragStrip(hdc, r.right);
+      FillRect(hdc, &r, GetSysColorBrush(COLOR_WINDOW));
+      if (PanelIsHovered(hwnd))
+         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }

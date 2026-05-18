@@ -16,6 +16,7 @@
 
 static HWND panels[MAX_PANELS];
 static int  nPanels = 0;
+static BOOL gMovingAll = FALSE; /* suppress snap during PanelMoveAll */
 
 M59EXPORT void PanelRegister(HWND hwnd)
 {
@@ -32,6 +33,7 @@ M59EXPORT void PanelUnregister(HWND hwnd)
 M59EXPORT void PanelMoveAll(int dx, int dy)
 {
    if (dx == 0 && dy == 0) return;
+   gMovingAll = TRUE; /* suppress PanelSnap so panels don't snap against mid-move positions */
    for (int i = 0; i < nPanels; i++)
    {
       RECT r;
@@ -40,6 +42,7 @@ M59EXPORT void PanelMoveAll(int dx, int dy)
          r.left + dx, r.top + dy, 0, 0,
          SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE | SWP_NOREDRAW);
    }
+   gMovingAll = FALSE;
 }
 
 M59EXPORT void PanelShowAll(int nCmdShow)
@@ -91,6 +94,7 @@ M59EXPORT LRESULT PanelHitTest(HWND hwnd, LPARAM lParam, BOOL canResize)
 M59EXPORT void PanelSnap(HWND hwnd, WINDOWPOS *wp)
 {
    if (wp->flags & SWP_NOMOVE) return;
+   if (gMovingAll) return; /* batch move — panels haven't all relocated yet, skip snap */
 
    int x = wp->x, y = wp->y;
    int w = wp->cx, h = wp->cy;
@@ -115,6 +119,50 @@ M59EXPORT void PanelSnap(HWND hwnd, WINDOWPOS *wp)
 
    wp->x = x;
    wp->y = y;
+}
+
+/*
+ * PanelIsHovered: Returns TRUE if the cursor is currently inside the drag-strip
+ *   zone (top PANEL_DRAG_H px) of hwnd.  Call from WM_PAINT to decide whether
+ *   to draw the strip.
+ */
+M59EXPORT BOOL PanelIsHovered(HWND hwnd)
+{
+   POINT pt;
+   RECT  r;
+   GetCursorPos(&pt);
+   ScreenToClient(hwnd, &pt);
+   GetClientRect(hwnd, &r);
+   return (pt.y >= 0 && pt.y < PANEL_DRAG_H && pt.x >= 0 && pt.x < r.right);
+}
+
+/*
+ * PanelTrackHover: Call from WM_MOUSEMOVE.  Starts leave-tracking and
+ *   invalidates the drag-strip zone so it can appear/disappear.
+ */
+M59EXPORT void PanelTrackHover(HWND hwnd)
+{
+   TRACKMOUSEEVENT tme;
+   RECT rc;
+   tme.cbSize      = sizeof(tme);
+   tme.dwFlags     = TME_LEAVE;
+   tme.hwndTrack   = hwnd;
+   tme.dwHoverTime = 0;
+   TrackMouseEvent(&tme);
+   GetClientRect(hwnd, &rc);
+   rc.bottom = PANEL_DRAG_H;
+   InvalidateRect(hwnd, &rc, FALSE);
+}
+
+/*
+ * PanelLeaveHover: Call from WM_MOUSELEAVE to hide the drag strip.
+ */
+M59EXPORT void PanelLeaveHover(HWND hwnd)
+{
+   RECT rc;
+   GetClientRect(hwnd, &rc);
+   rc.bottom = PANEL_DRAG_H;
+   InvalidateRect(hwnd, &rc, FALSE);
 }
 
 /*

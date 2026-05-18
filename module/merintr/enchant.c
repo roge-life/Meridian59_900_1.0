@@ -74,6 +74,14 @@ static LRESULT CALLBACK EnchantPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       return 0;
    }
 
+   case WM_MOUSEMOVE:
+      PanelTrackHover(hwnd);
+      return 0;
+
+   case WM_MOUSELEAVE:
+      PanelLeaveHover(hwnd);
+      return 0;
+
    case WM_ERASEBKGND:
       return 1;
 
@@ -83,9 +91,9 @@ static LRESULT CALLBACK EnchantPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      RECT content = {0, PANEL_DRAG_H, r.right, r.bottom};
-      FillRect(hdc, &content, GetSysColorBrush(COLOR_BTNFACE));
-      PanelDrawDragStrip(hdc, r.right);
+      FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
+      if (PanelIsHovered(hwnd))
+         PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }
