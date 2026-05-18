@@ -220,8 +220,6 @@ void StatsListMeasureItem(HWND hwnd, MEASUREITEMSTRUCT *lpmis)
  */
 BOOL StatsListDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
 {
-   AREA stats_area;
-
    if (hList == NULL)
       return TRUE;
 
