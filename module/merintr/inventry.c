@@ -707,6 +707,9 @@ void InventoryLButtonDown(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFl
 {
    if (fDoubleClick)
    {
+      // Cancel the drag that the first click of the double-click started,
+      // so the subsequent WM_LBUTTONUP does not drop the item.
+      InventoryReleaseCapture();
       InventoryKey(hwnd, VK_LDBLCLK, True, 0, keyFlags);
       return;
    }

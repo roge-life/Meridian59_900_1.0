@@ -13,8 +13,8 @@
 #ifndef _GRAPHICS_H
 #define _GRAPHICS_H
 
-#define MIN_WINDOW_WIDTH  390
-#define MIN_WINDOW_HEIGHT 380
+#define MIN_WINDOW_WIDTH  1024
+#define MIN_WINDOW_HEIGHT 768
 
 #define MIN_TOP_TOOLBAR 6      // Minimum height of top area with toolbar present
 #define MIN_TOP_NOTOOLBAR 26   // Minimum height of top area without toolbar present
