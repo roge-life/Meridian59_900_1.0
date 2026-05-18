@@ -120,6 +120,10 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
       EndPaint(hwnd, &ps);
+      /* Redraw text labels for numeric groups — they are drawn directly to
+         the DC (not via child controls) and get erased by the FillRect above. */
+      SetActiveStatPanel(idx);
+      StatsDraw();
       return 0;
    }
 

@@ -273,8 +273,9 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
  */
 void InventoryDisplayScrollbar(void)
 {
+   BOOL wasVisible = IsWindowVisible(hwndInvDialog);
    ShowWindow(hwndInvDialog, SW_HIDE);  /* Hide scrollbar ugliness */
-   ShowWindow(hwndInvScroll, SW_HIDE); 
+   ShowWindow(hwndInvScroll, SW_HIDE);
 
    has_scrollbar = (num_items > rows * cols);
 
@@ -292,11 +293,11 @@ void InventoryDisplayScrollbar(void)
 	      TRUE);
 
    InventoryScrollRange();
-	if( StatsGetCurrentGroup() == STATS_INVENTORY )		//	ajw
-	{
-		ShowWindow(hwndInvDialog, SW_SHOWNORMAL);
-		ShowWindow(hwndInvScroll, has_scrollbar ? SW_SHOWNORMAL : SW_HIDE);
-	}
+   if (wasVisible)
+   {
+      ShowWindow(hwndInvDialog, SW_SHOWNORMAL);
+      ShowWindow(hwndInvScroll, has_scrollbar ? SW_SHOWNORMAL : SW_HIDE);
+   }
 }
 /************************************************************************/
 /* 

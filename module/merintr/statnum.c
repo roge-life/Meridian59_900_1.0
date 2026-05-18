@@ -263,9 +263,9 @@ void StatsNumVScroll(HWND hwnd, HWND hwndCtl, UINT code, int pos)
 void StatsNumDraw(list_type stats)
 {
    list_type l;
-
-   StatsClearArea();
-
+   /* Don't call StatsClearArea() here — that queues WM_PAINT which calls back
+      into StatsDraw, creating an infinite repaint loop.  WM_PAINT fills the
+      black background and then calls StatsDraw directly. */
    for (l = stats; l != NULL; l = l->next)
       DisplayNumericStat((Statistic *) l->data);
 }

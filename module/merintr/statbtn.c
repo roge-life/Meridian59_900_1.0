@@ -67,11 +67,15 @@ static LRESULT CALLBACK StatButtonBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
       WINDOWPOS *pos = (WINDOWPOS *)lp;
       if (!(pos->flags & SWP_NOMOVE))
       {
-         /* Always stay at bottom-right of the work area */
-         RECT work;
+         /* Always stay at bottom-right of the work area.
+            When SWP_NOSIZE is set, pos->cx/cy are 0; use the actual window size. */
+         RECT work, wr;
          SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
-         pos->x = work.right  - pos->cx;
-         pos->y = work.bottom - pos->cy;
+         GetWindowRect(hwnd, &wr);
+         int cx = (pos->flags & SWP_NOSIZE) ? (wr.right - wr.left) : pos->cx;
+         int cy = (pos->flags & SWP_NOSIZE) ? (wr.bottom - wr.top) : pos->cy;
+         pos->x = work.right  - cx;
+         pos->y = work.bottom - cy;
       }
       return 0;
    }
@@ -222,12 +226,13 @@ void StatsMoveButtons(void)
    int barW = r.right;
    int barH = r.bottom;
 
-   /* Repin bar to screen bottom-right whenever layout is recalculated */
+   /* Repin bar to screen bottom-right.  Pass actual size so WM_WINDOWPOSCHANGING
+      can compute the correct position (pos->cx/cy are 0 when SWP_NOSIZE is used). */
    RECT work;
    SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
    SetWindowPos(hStatButtonBar, HWND_TOPMOST,
-      work.right - barW, work.bottom - barH, 0, 0,
-      SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+      work.right - barW, work.bottom - barH, barW, barH,
+      SWP_NOACTIVATE | SWP_NOOWNERZORDER);
 
    int btnW = barW / NUM_BUTTONS;
 
