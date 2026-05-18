@@ -62,6 +62,9 @@ EXPORTS
 	PanelHitTest
 	PanelSnap
 	PanelDrawDragStrip
+	PanelIsHovered
+	PanelTrackHover
+	PanelLeaveHover
 
 ; Send messages to other modules
 	ModuleEvent
