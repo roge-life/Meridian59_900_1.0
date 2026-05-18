@@ -807,7 +807,7 @@ static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      FillRect(hdc, &r, GetStockObject(BLACK_BRUSH));
+      FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
       EndPaint(hwnd, &ps);
       return 0;
    }
@@ -827,7 +827,7 @@ void MiniMapPanelCreate(HWND hParent)
       wc.cbSize        = sizeof(wc);
       wc.lpfnWndProc   = MiniMapPanelWndProc;
       wc.hInstance     = hInst;
-      wc.hbrBackground = GetStockObject(BLACK_BRUSH);
+      wc.hbrBackground = (HBRUSH)GetStockObject(BLACK_BRUSH);
       wc.lpszClassName = "M59MiniMapPanel";
       RegisterClassEx(&wc);
       classRegistered = True;
