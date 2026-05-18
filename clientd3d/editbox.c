@@ -55,7 +55,7 @@ void EditBoxCreate(HWND hParent)
    hwndText = CreateWindowEx(0, "richedit", NULL,
 			   WS_CHILD | WS_VSCROLL | WS_VISIBLE |
 			   ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-			   0, 0, chatCR.right, textH,
+			   0, PANEL_DRAG_H, chatCR.right, max(textH - PANEL_DRAG_H, 0),
 			   chatPanel, (HMENU) IDC_MAINTEXT, hInst, NULL);
 
    EditBoxChangeColor();
@@ -147,6 +147,17 @@ long CALLBACK EditProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lParam)
 
    switch (message)
    {
+   case WM_NCHITTEST:
+   {
+      POINT pt = { GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
+      HWND hPanel = GetParent(hwnd);
+      RECT panelRect;
+      GetWindowRect(hPanel, &panelRect);
+      if (pt.y < panelRect.top + PANEL_DRAG_H)
+         return SendMessage(hPanel, WM_NCHITTEST, wParam, lParam);
+      break;
+   }
+
    case WM_ERASEBKGND:
      SelectPalette((HDC) wParam, hPal, FALSE);
      break;

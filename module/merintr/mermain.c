@@ -110,11 +110,12 @@ void InterfaceColorChanged(WORD color_id, COLORREF color)
 void InterfaceResizeModule(int xsize, int ysize, AREA *view)
 {
    InventoryBoxResize(xsize, ysize, view);
-   UserAreaResize(xsize, ysize, view);   
+   UserAreaResize(xsize, ysize, view);
    StatsResize(xsize, ysize, view);
    StatsMainResize(xsize, ysize, view);
    EnchantmentsResize(xsize, ysize, view);
    InterfaceDrawResize(xsize, ysize, view);
+   StatsMoveButtons();
 }
 /****************************************************************************/
 /*

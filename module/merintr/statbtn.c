@@ -223,6 +223,14 @@ void StatsMoveButtons(void)
    GetClientRect(hStatButtonBar, &r);
    int barW = r.right;
    int barH = r.bottom;
+
+   /* Repin bar to screen bottom-right whenever layout is recalculated */
+   RECT work;
+   SystemParametersInfo(SPI_GETWORKAREA, 0, &work, 0);
+   SetWindowPos(hStatButtonBar, HWND_TOPMOST,
+      work.right - barW, work.bottom - barH, 0, 0,
+      SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+
    int btnW = barW / NUM_BUTTONS;
 
    for (int slot = 0; slot < NUM_BUTTONS; slot++)
