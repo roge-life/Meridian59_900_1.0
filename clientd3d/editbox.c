@@ -45,14 +45,18 @@ static long CALLBACK EditProc(HWND hwnd, UINT message, WPARAM wParam, LPARAM lPa
  */
 void EditBoxCreate(HWND hParent)
 {
-   /* Don't use WS_VISIBLE style here--create window large enough so that 
-    * scroll bar will be drawn, then size for real & make visible in ResizeEditBox.
-    */
-   hwndText = CreateWindowEx(0, "richedit", NULL, 
+   // Parent to the floating chat panel created by TextInputCreate.
+   HWND chatPanel = TextInputGetChatPanel();
+   RECT chatCR;
+   GetClientRect(chatPanel, &chatCR);
+   int inputH = GetTextInputHeight();
+   int textH  = chatCR.bottom - inputH;
+
+   hwndText = CreateWindowEx(0, "richedit", NULL,
 			   WS_CHILD | WS_VSCROLL | WS_VISIBLE |
 			   ES_MULTILINE | ES_READONLY | ES_AUTOVSCROLL,
-			   0, 0, 0, 0, 
-			   hParent, (HMENU) IDC_MAINTEXT, hInst, NULL);
+			   0, 0, chatCR.right, textH,
+			   chatPanel, (HMENU) IDC_MAINTEXT, hInst, NULL);
 
    EditBoxChangeColor();
 

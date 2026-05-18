@@ -134,8 +134,24 @@ void InventoryBoxCreate(HWND hParent)
    BITMAPINFOHEADER *ptr;
 	LOGBRUSH logbrush;
 
-   hwndInvDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_INVENTORY), 
+   hwndInvDialog = CreateDialog(hInst, MAKEINTRESOURCE(IDD_INVENTORY),
 				hParent, InventoryDialogProc);
+
+   // Set initial floating position: right side of main window, below stats panel.
+   {
+      RECT cr;
+      RECT stats_wr = {0, 0, 200, 380};
+      AdjustWindowRect(&stats_wr, WS_POPUP | WS_CAPTION | WS_SYSMENU, FALSE);
+      int stats_wh = stats_wr.bottom - stats_wr.top;
+      RECT inv_wr = {0, 0, 200, 260};
+      AdjustWindowRect(&inv_wr, WS_POPUP | WS_CAPTION | WS_SYSMENU | WS_CLIPCHILDREN, FALSE);
+      int inv_ww = inv_wr.right - inv_wr.left;
+      int inv_wh = inv_wr.bottom - inv_wr.top;
+      GetClientRect(hParent, &cr);
+      POINT pt = {cr.right - inv_ww - 4, 54 + stats_wh + 4};
+      ClientToScreen(hParent, &pt);
+      SetWindowPos(hwndInvDialog, HWND_TOP, pt.x, pt.y, inv_ww, inv_wh, SWP_NOACTIVATE);
+   }
 
    hwndInv = CreateWindow("button", NULL, 
 			  WS_CHILD | WS_VISIBLE | BS_OWNERDRAW,
@@ -230,28 +246,16 @@ void InventoryBoxResize(int xsize, int ysize, AREA *view)
 {
    int old_cols = cols;
    int old_rows = rows;
-   AREA minimap;
-   int minimap_top;
 
-   /* Turn off highlight */
-   DrawBorder(&inventory_area, inventory_bg_index, NULL);
+   if (!hwndInvDialog) return;
 
-   inventory_area.x = view->x + view->cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
-   inventory_area.cx = min(xsize - inventory_area.x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
-
-   CopyCurrentAreaMiniMap(&minimap);
-   // Start below enchantments area + group buttons.
-   inventory_area.y = TOP_BORDER + EDGETREAT_HEIGHT + USERAREA_HEIGHT + ENCHANT_BORDER + MAPTREAT_HEIGHT
-      + (ENCHANT_SIZE + ENCHANT_BORDER) * 2 + GROUPBUTTONS_HEIGHT + MAP_STATS_GAP_HEIGHT + 1;
-   // If minimap shares our column (stacked), end just above it.
-   // Otherwise (side-by-side) fill to the panel bottom (independent of game-view height).
-   if (minimap.x < inventory_area.x + inventory_area.cx) {
-      minimap_top = minimap.y - MAPTREAT_HEIGHT - MAP_STATS_GAP_HEIGHT - 3 * HIGHLIGHT_THICKNESS;
-      inventory_area.cy = minimap_top - inventory_area.y - STATS_BOTTOM_GAP_HEIGHT;
-   } else {
-      int panel_bottom = ysize - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-      inventory_area.cy = panel_bottom - STATS_BOTTOM_GAP_HEIGHT - inventory_area.y;
-   }
+   // Panel is a free-floating popup; derive layout from its own client rect.
+   RECT r;
+   GetClientRect(hwndInvDialog, &r);
+   inventory_area.x  = 0;
+   inventory_area.y  = 0;
+   inventory_area.cx = r.right;
+   inventory_area.cy = r.bottom;
 
    InventoryComputeRowsCols();
 
@@ -278,11 +282,9 @@ void InventoryDisplayScrollbar(void)
 
    InventoryComputeRowsCols();
 
-   MoveWindow(hwndInvDialog, inventory_area.x, inventory_area.y, 
-	      inventory_area.cx, inventory_area.cy,
-	      FALSE);
+   // hwndInvDialog is a floating popup — don't reposition it here.
 
-   MoveWindow(hwndInv, 0, 0, 
+   MoveWindow(hwndInv, 0, 0,
 	      inventory_area.cx - inventory_scrollbar_width, inventory_area.cy,
 	      FALSE);
 

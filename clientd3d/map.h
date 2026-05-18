@@ -20,6 +20,9 @@ void MapDraw( HDC hdc, BYTE *bits, AREA *area, room_type *room, int width, Bool 
 void MapZoom(int direction);
 void MapScreenToRoom( int *x, int *y, Bool bMiniMap );
 void MapMiniSizeChanged(AREA *newArea);
+void MiniMapPanelCreate(HWND hParent);
+void MiniMapPanelDestroy(void);
+HWND MiniMapPanelGetHwnd(void);
 
 void MapEnterRoom(room_type *room);
 void MapExitRoom(room_type *room);

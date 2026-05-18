@@ -840,15 +840,25 @@ void DrawMapAsView(room_type *room, Draw3DParams *params)
 
 void DrawMiniMap(room_type *room, Draw3DParams *params)
 {
-   AREA area,areaMiniMap;
+   HWND hPanel = MiniMapPanelGetHwnd();
+   if (!hPanel) return;
+
    int num_visible_object_SavedForMiniMapHack = num_visible_objects;
 
-   CopyCurrentAreaMiniMap(&areaMiniMap);
-   area = areaMiniMap;
-   area.x = area.y = 0;
-   MapDraw(gMiniMapDC, gMiniMapBits, &area, room, MINIMAP_MAX_WIDTH, TRUE); // cx = MINIMAP_MAX_WIDTH
-   num_visible_objects = num_visible_object_SavedForMiniMapHack; // restore
-   RecopyRoom3D(params->hdc, areaMiniMap.x, areaMiniMap.y, area.cx, area.cy,TRUE);
+   // Render minimap at the panel's client size.
+   RECT r;
+   GetClientRect(hPanel, &r);
+   AREA area = {0, 0, r.right, r.bottom};
+   MapDraw(gMiniMapDC, gMiniMapBits, &area, room, MINIMAP_MAX_WIDTH, TRUE);
+   num_visible_objects = num_visible_object_SavedForMiniMapHack;
+
+   // Push rendered pixels to the panel window.
+   HDC hdc = GetDC(hPanel);
+   if (hdc)
+   {
+      BitBlt(hdc, 0, 0, r.right, r.bottom, gMiniMapDC, 0, 0, SRCCOPY);
+      ReleaseDC(hPanel, hdc);
+   }
 }
 
 

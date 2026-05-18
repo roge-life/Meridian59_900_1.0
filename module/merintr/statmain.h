@@ -18,6 +18,8 @@
 #define STAT_ICON_WIDTH 17   // Width of stat icons
 #define STATS_MAIN_SPACING 1 // Space between adjacent stats
 
+void StatsMainPanelCreate(HWND hParent);
+void StatsMainPanelDestroy(void);
 void StatsMainReceive(list_type stats);
 void StatsMainDestroy(void);
 void StatsMainChange(Statistic *s);

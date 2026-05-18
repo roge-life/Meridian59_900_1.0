@@ -36,6 +36,7 @@ void InterfaceInitialize(HWND hParent)
    GraphicsAreaCreate(hParent);
    TextInputCreate(hParent);
    EditBoxCreate(hParent);
+   ShowWindow(TextInputGetChatPanel(), SW_SHOW);
    ToolbarCreate();
    TooltipCreate();
    Timebox_Create();
@@ -43,7 +44,8 @@ void InterfaceInitialize(HWND hParent)
    Fpsbox_Create();
 
    MapAnnotationsInitialize();
-   
+   MiniMapPanelCreate(hParent);
+
    interface_created = True;
 
    /* Send resize message so that subwindows can size themselves */
@@ -72,6 +74,7 @@ void InterfaceClose(void)
    MusicStop();
    SoundStopAll();
 
+   MiniMapPanelDestroy();
    GraphicsAreaDestroy();
    TextInputDestroy();
    EditBoxDestroy();
@@ -94,8 +97,7 @@ void InterfaceRedraw(HDC hdc)
    if (!interface_created)
       return;
 
-   /* Draw border around appropriate area */
-   EditBoxDrawBorder();
+   /* Draw border around game view (no-op for fullscreen D3D, but kept for compatibility) */
    DrawGridBorder();
 
    GraphicsAreaRedraw(hdc);
@@ -118,8 +120,6 @@ void InterfaceResize(int xsize, int ysize)
 
    CopyCurrentView(&view);
 
-   TextInputResize(xsize, ysize, view);
-   EditBoxResize(xsize, ysize, view);
    ToolbarResize(xsize, ysize, view);
    Lagbox_Reposition();
    Timebox_Reposition();
@@ -139,8 +139,7 @@ void InterfaceGetMaxSize(SIZE *s)
 {
    int factor = config.large_area ? 2 : 1;
 
-   s->cx = MAXX * factor + INVENTORY_MAX_WIDTH + LEFT_BORDER * 3 
-      + 2 * GetSystemMetrics(SM_CXFRAME);
+   s->cx = GetSystemMetrics(SM_CXSCREEN);
    s->cy = GetSystemMetrics(SM_CYSCREEN) + 2 * GetSystemMetrics(SM_CYFRAME);
 
    POINT mousePos;

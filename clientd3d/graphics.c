@@ -207,37 +207,28 @@ void GraphicsAreaResize(int xsize, int ysize)
    int new_xsize, new_ysize;  /* Need signed #s */
    Bool must_redraw = False;
 
-   int max_width, max_height;
-   int stretchfactor = config.large_area ? 2 : 1;
-
-   max_width  = stretchfactor * MAXX;
-   max_height = stretchfactor * MAXY;
-
-   new_xsize = min(xsize - INVENTORY_MIN_WIDTH, max_width);
-
-   new_ysize = ysize - TEXT_AREA_MIN_HEIGHT - BOTTOM_BORDER - GetTextInputHeight() - TOP_BORDER - EDGETREAT_HEIGHT * 2;
+   // D3D view fills the entire window below the toolbar.
+   new_xsize = xsize;
+   new_ysize = ysize;
    if (config.toolbar)
-     new_ysize -= TOOLBAR_BUTTON_HEIGHT - MIN_TOP_TOOLBAR;
-   else new_ysize -= MIN_TOP_NOTOOLBAR;
-   new_ysize = min(new_ysize, max_height);   
+      new_ysize -= TOOLBAR_Y + TOOLBAR_BUTTON_HEIGHT + MIN_TOP_TOOLBAR;
+   else
+      new_ysize -= TOP_BORDER + MIN_TOP_NOTOOLBAR + EDGETREAT_HEIGHT;
 
-   /* Make sizes divisible by 4.  Must be even for draw3d, and when 
-    * stretchfactor = 2, need divisible by 4 so that room fits exactly in view */
+   /* Keep divisible by 4 for draw3d alignment. */
    new_xsize &= ~3;
    new_ysize &= ~3;
 
-   if (new_xsize < 0)
-      new_xsize = 0;
-   if (new_ysize < 0)
-      new_ysize = 0;
+   if (new_xsize < 0) new_xsize = 0;
+   if (new_ysize < 0) new_ysize = 0;
 
-   /* Move grid area to appropriate place */
-   view.x = LEFT_BORDER + HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH;
-   view.y = HIGHLIGHT_THICKNESS;
+   view.x = 0;
+   view.y = 0;
    if (config.toolbar)
-     view.y += TOOLBAR_Y + TOOLBAR_BUTTON_HEIGHT + MIN_TOP_TOOLBAR;
-   else view.y += TOP_BORDER + MIN_TOP_NOTOOLBAR + EDGETREAT_HEIGHT;
-   
+      view.y = TOOLBAR_Y + TOOLBAR_BUTTON_HEIGHT + MIN_TOP_TOOLBAR;
+   else
+      view.y = TOP_BORDER + MIN_TOP_NOTOOLBAR + EDGETREAT_HEIGHT;
+
    if (new_xsize != view.cx || new_ysize != view.cy)
       must_redraw = True;
 
@@ -246,42 +237,10 @@ void GraphicsAreaResize(int xsize, int ysize)
 
    D3DRenderResizeDisplay(view.x, view.y, view.cx, view.cy);
 
-   // Right-panel geometry.
-   int min_map_x    = view.x + view.cx + LEFT_BORDER + 2 * HIGHLIGHT_THICKNESS + MAPTREAT_WIDTH;
-   int map_rmargin  = 2 * HIGHLIGHT_THICKNESS + EDGETREAT_WIDTH + MAPTREAT_WIDTH;
-   // Bottom of the right panel — independent of the game view height.
-   int panel_bottom = ysize - 2 * HIGHLIGHT_THICKNESS - EDGETREAT_HEIGHT;
-
-   // Stats column geometry (mirrors stats.c / inventry.c).
-   int stats_x  = view.x + view.cx + LEFT_BORDER + 3 * HIGHLIGHT_THICKNESS;
-   int stats_cx = min(xsize - stats_x - 3 * HIGHLIGHT_THICKNESS - EDGETREAT_WIDTH, INVENTORY_MAX_WIDTH);
-
-   // Space available to the right of the stats column for a side-by-side minimap.
-   int mini_avail_cx = xsize - (stats_x + stats_cx + MAP_STATS_GAP_HEIGHT) - map_rmargin;
-
-   if (mini_avail_cx >= 80)
-   {
-      // Side-by-side: minimap fills right portion of the right panel,
-      // from the enchantments strip down to the panel bottom.
-      areaMiniMap.x  = stats_x + stats_cx + MAP_STATS_GAP_HEIGHT;
-      areaMiniMap.cx = min(mini_avail_cx, MINIMAP_MAX_WIDTH);
-      areaMiniMap.y  = ENCHANT_STRIP_BOTTOM;
-      areaMiniMap.cy = min(panel_bottom - MAPTREAT_HEIGHT - ENCHANT_STRIP_BOTTOM, MINIMAP_MAX_HEIGHT);
-   }
-   else
-   {
-      // Stacked: minimap anchored to panel bottom, stats fill above it.
-      areaMiniMap.cx = min(xsize - min_map_x - map_rmargin, MINIMAP_MAX_WIDTH);
-      areaMiniMap.x  = max(min_map_x, xsize - areaMiniMap.cx - map_rmargin);
-      int avail_h    = panel_bottom - ENCHANT_STRIP_BOTTOM;
-      areaMiniMap.cy = min((int)(avail_h * PROPORTION_MINIMAP) - MAPTREAT_HEIGHT, MINIMAP_MAX_HEIGHT);
-      areaMiniMap.y  = panel_bottom - areaMiniMap.cy - MAPTREAT_HEIGHT;
-   }
-
-   MapMiniSizeChanged(&areaMiniMap);
-
-   //	Tell view edge treatment elements to reposition themselves.
-   ViewElementsReposition( &view );
+   // Minimap and panel layout is now owned by the floating panel popups.
+   // Set a sentinel areaMiniMap so MouseToMiniMap always returns false.
+   areaMiniMap.x = areaMiniMap.y = -9999;
+   areaMiniMap.cx = areaMiniMap.cy = 0;
 
    if (must_redraw)
    {
