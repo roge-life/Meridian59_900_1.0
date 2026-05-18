@@ -32,6 +32,9 @@ static BOOL gMovingAll = FALSE;   /* suppress snap during PanelMoveAll */
 typedef struct { HWND hwnd; char name[32]; } NamedPanel;
 static NamedPanel namedPanels[MAX_NAMED_PANELS];
 static int nNamedPanels = 0;
+static char panel_section[] = "Panels";
+
+static void PanelSavePosForHwnd(HWND hwnd); /* forward decl for OverlayProc */
 
 /* ── Overlay state ──────────────────────────────────────────────── */
 static HWND  hOverlay    = NULL;  /* shared overlay window            */
@@ -260,17 +263,18 @@ static void PanelOverlayCreate(void)
 
 static void PanelSavePosForHwnd(HWND hwnd)
 {
-   for (int i = 0; i < nNamedPanels; i++)
+   int i;
+   for (i = 0; i < nNamedPanels; i++)
    {
       if (namedPanels[i].hwnd != hwnd) continue;
       RECT r;
       GetWindowRect(hwnd, &r);
       char key[64];
       const char *n = namedPanels[i].name;
-      sprintf(key, "Panel_%s_X", n); WriteConfigInt(key, r.left);
-      sprintf(key, "Panel_%s_Y", n); WriteConfigInt(key, r.top);
-      sprintf(key, "Panel_%s_W", n); WriteConfigInt(key, r.right - r.left);
-      sprintf(key, "Panel_%s_H", n); WriteConfigInt(key, r.bottom - r.top);
+      sprintf(key, "%s_X", n); WriteConfigInt(panel_section, key, r.left, ini_file);
+      sprintf(key, "%s_Y", n); WriteConfigInt(panel_section, key, r.top, ini_file);
+      sprintf(key, "%s_W", n); WriteConfigInt(panel_section, key, r.right - r.left, ini_file);
+      sprintf(key, "%s_H", n); WriteConfigInt(panel_section, key, r.bottom - r.top, ini_file);
       return;
    }
 }
@@ -329,10 +333,11 @@ M59EXPORT void PanelLoadPos(HWND hwnd, const char *name)
    RECT r;
    GetWindowRect(hwnd, &r);
    char key[64];
-   sprintf(key, "Panel_%s_X", name); int x = GetConfigInt(key, r.left);
-   sprintf(key, "Panel_%s_Y", name); int y = GetConfigInt(key, r.top);
-   sprintf(key, "Panel_%s_W", name); int w = GetConfigInt(key, r.right - r.left);
-   sprintf(key, "Panel_%s_H", name); int h = GetConfigInt(key, r.bottom - r.top);
+   int x, y, w, h;
+   sprintf(key, "%s_X", name); x = GetConfigInt(panel_section, key, r.left, ini_file);
+   sprintf(key, "%s_Y", name); y = GetConfigInt(panel_section, key, r.top, ini_file);
+   sprintf(key, "%s_W", name); w = GetConfigInt(panel_section, key, r.right - r.left, ini_file);
+   sprintf(key, "%s_H", name); h = GetConfigInt(panel_section, key, r.bottom - r.top, ini_file);
    if (x != r.left || y != r.top || w != (r.right - r.left) || h != (r.bottom - r.top))
       SetWindowPos(hwnd, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
 }
