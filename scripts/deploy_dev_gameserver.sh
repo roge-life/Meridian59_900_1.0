@@ -96,9 +96,9 @@ text = raw.decode('utf-8', errors='replace').replace('\r\n', '\n').replace('\r',
 
 # Patch [Login] MinClassicVersion (replace existing or append inside section)
 if re.search(r'^MinClassicVersion', text, re.MULTILINE):
-    text = re.sub(r'^MinClassicVersion.*', 'MinClassicVersion    5072', text, flags=re.MULTILINE)
+    text = re.sub(r'^MinClassicVersion.*', 'MinClassicVersion    5073', text, flags=re.MULTILINE)
 else:
-    text = re.sub(r'(\[Login\][^\[]*)', r'\1MinClassicVersion    5072\n', text, flags=re.DOTALL)
+    text = re.sub(r'(\[Login\][^\[]*)', r'\1MinClassicVersion    5073\n', text, flags=re.DOTALL)
 
 # Replace entire [Update] section content (everything between [Update] and next [Section])
 update_block = (
