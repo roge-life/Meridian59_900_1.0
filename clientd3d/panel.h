@@ -20,6 +20,7 @@
 #define PANEL_DRAG_H    18   /* px at top of every panel: drag-to-move strip */
 #define PANEL_RESIZE_B   5   /* px at each edge: resize handle zone          */
 #define PANEL_SNAP_DIST 12   /* px within which panel edges snap together    */
+#define PANEL_HANDLE    20   /* px for the bottom-right resize pull tab      */
 
 /* Drag-strip colour – used by PanelDrawDragStrip and WM_ERASEBKGND */
 #define PANEL_DRAG_COLOR  RGB(50, 50, 53)
@@ -39,5 +40,9 @@ M59EXPORT void    PanelSetName(HWND hwnd, const char *name);
 M59EXPORT void    PanelLoadPos(HWND hwnd, const char *name);
 M59EXPORT void    PanelSaveAll(void);
 M59EXPORT void    PanelClampAll(HWND hRef);
+M59EXPORT void    PanelGameTabCreate(HWND hRef);
+M59EXPORT void    PanelGameTabDestroy(void);
+M59EXPORT void    PanelGameTabUpdate(void);
+M59EXPORT void    PanelGameTabHide(void);
 
 #endif /* _PANEL_H */

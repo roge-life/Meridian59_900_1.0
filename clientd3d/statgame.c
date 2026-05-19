@@ -24,7 +24,7 @@ void GameInit(void)
    timeBeginPeriod(1);
 
    /* clear the window for our use */
-   InvalidateRect(hMain,NULL,TRUE); 
+   InvalidateRect(hMain,NULL,TRUE);
    UpdateWindow(hMain);
 
    InitializeGame();
@@ -34,6 +34,8 @@ void GameInit(void)
    KeyInit();
    DrawInitialize();
    MapFileInitialize();
+
+   PanelGameTabCreate(hMain);
 
    GameSetState(GAME_INVALID);
 
@@ -49,8 +51,10 @@ void GameExit(void)
 {
    timeEndPeriod(1);
 
+   PanelGameTabDestroy();
+
    ModulesExitGame();
-   
+
    GameSetState(GAME_NONE);
 
    TimeboxTimerAbort();
@@ -237,6 +241,7 @@ void GameMove(HWND hwnd, int x, int y)
       PanelMoveAll(x - lastX, y - lastY);
    lastX = x;
    lastY = y;
+   PanelGameTabUpdate();
 }
 /****************************************************************************/
 void GameResize(HWND hwnd, UINT resize_flag, int xsize, int ysize)
@@ -244,11 +249,13 @@ void GameResize(HWND hwnd, UINT resize_flag, int xsize, int ysize)
    if (resize_flag == SIZE_MINIMIZED)
    {
       PanelShowAll(SW_HIDE);
+      PanelGameTabHide();
       return;
    }
    if (resize_flag == SIZE_RESTORED || resize_flag == SIZE_MAXIMIZED)
       PanelShowAll(SW_SHOWNOACTIVATE);
    InterfaceResize(xsize, ysize);
+   PanelGameTabUpdate();
 }
 /****************************************************************************/
 void GameSetFocus(HWND hwnd, HWND hwndOldFocus)

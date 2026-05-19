@@ -69,6 +69,10 @@ EXPORTS
 	PanelLoadPos
 	PanelSaveAll
 	PanelClampAll
+	PanelGameTabCreate
+	PanelGameTabDestroy
+	PanelGameTabUpdate
+	PanelGameTabHide
 
 ; Send messages to other modules
 	ModuleEvent

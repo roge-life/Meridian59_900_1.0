@@ -21,7 +21,7 @@
 #define MAX_PANELS       16
 #define OVERLAY_TIMER_ID 42
 #define OVERLAY_POLL_MS  50       /* cursor check interval (ms) */
-#define OVERLAY_HANDLE   20       /* bottom-right resize corner size (px) */
+#define OVERLAY_HANDLE   PANEL_HANDLE  /* bottom-right resize corner size (px) */
 
 static HWND panels[MAX_PANELS];
 static int  nPanels    = 0;
@@ -490,3 +490,102 @@ M59EXPORT void PanelDrawDragStrip(HDC hdc, int width)
 M59EXPORT BOOL PanelIsHovered(HWND hwnd)  { return FALSE; }
 M59EXPORT void PanelTrackHover(HWND hwnd) { }
 M59EXPORT void PanelLeaveHover(HWND hwnd) { }
+
+/* ================================================================== */
+/* Game-view resize pull tab                                            */
+/* ================================================================== */
+
+static HWND hGameTab = NULL;
+static HWND hGameRef = NULL;
+
+static LRESULT CALLBACK GameTabProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
+{
+   switch (msg)
+   {
+   case WM_ERASEBKGND:
+      return 1;
+
+   case WM_PAINT:
+   {
+      PAINTSTRUCT ps;
+      HDC hdc = BeginPaint(hwnd, &ps);
+      RECT rc;
+      GetClientRect(hwnd, &rc);
+      int w = rc.right, h = rc.bottom;
+      /* Same 45-degree triangle as the panel overlay, filling the whole window */
+      POINT tri[3] = { {0, h}, {w, 0}, {w, h} };
+      HRGN  rgn = CreatePolygonRgn(tri, 3, WINDING);
+      HBRUSH hBr = CreateSolidBrush(PANEL_DRAG_COLOR);
+      FillRgn(hdc, rgn, hBr);
+      DeleteObject(rgn);
+      DeleteObject(hBr);
+      EndPaint(hwnd, &ps);
+      return 0;
+   }
+
+   case WM_SETCURSOR:
+      SetCursor(LoadCursor(NULL, IDC_SIZENWSE));
+      return TRUE;
+
+   case WM_LBUTTONDOWN:
+   {
+      POINT pt;
+      GetCursorPos(&pt);
+      /* Simulate a click on the bottom-right resize corner of the game window */
+      SendMessage(hGameRef, WM_NCLBUTTONDOWN, HTBOTTOMRIGHT, MAKELPARAM(pt.x, pt.y));
+      return 0;
+   }
+   }
+   return DefWindowProc(hwnd, msg, wp, lp);
+}
+
+M59EXPORT void PanelGameTabCreate(HWND hRef)
+{
+   static Bool classReg = False;
+   if (!classReg)
+   {
+      WNDCLASSEX wc;
+      memset(&wc, 0, sizeof(wc));
+      wc.cbSize        = sizeof(wc);
+      wc.lpfnWndProc   = GameTabProc;
+      wc.hInstance     = hInst;
+      wc.lpszClassName = "M59GameViewTab";
+      RegisterClassEx(&wc);
+      classReg = True;
+   }
+   hGameRef = hRef;
+   if (hGameTab) DestroyWindow(hGameTab);
+   RECT wr;
+   GetWindowRect(hRef, &wr);
+   hGameTab = CreateWindowEx(
+      WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
+      "M59GameViewTab", NULL,
+      WS_POPUP | WS_VISIBLE,
+      wr.right  - OVERLAY_HANDLE,
+      wr.bottom - OVERLAY_HANDLE,
+      OVERLAY_HANDLE, OVERLAY_HANDLE,
+      NULL, NULL, hInst, NULL);
+}
+
+M59EXPORT void PanelGameTabDestroy(void)
+{
+   if (hGameTab) { DestroyWindow(hGameTab); hGameTab = NULL; }
+   hGameRef = NULL;
+}
+
+M59EXPORT void PanelGameTabUpdate(void)
+{
+   if (!hGameTab || !hGameRef) return;
+   RECT wr;
+   GetWindowRect(hGameRef, &wr);
+   SetWindowPos(hGameTab, NULL,
+      wr.right  - OVERLAY_HANDLE,
+      wr.bottom - OVERLAY_HANDLE,
+      OVERLAY_HANDLE, OVERLAY_HANDLE,
+      SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
+}
+
+M59EXPORT void PanelGameTabHide(void)
+{
+   if (hGameTab) ShowWindow(hGameTab, SW_HIDE);
+}
