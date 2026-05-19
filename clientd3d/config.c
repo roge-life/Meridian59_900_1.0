@@ -156,6 +156,7 @@ void LoadSettings(void)
 void SaveSettings(void)
 {
    WindowSettingsSave();
+   PanelSaveAll();
    FontsSave();
    ColorsSave();
    CommSaveSettings();

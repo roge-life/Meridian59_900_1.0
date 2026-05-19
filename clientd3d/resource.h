@@ -514,13 +514,14 @@
 #define ID_COLOR_QUESTHEADER            3517
 #define ID_GRAPHICS_MENU                3518
 #define ID_NEWSLETTER                   3519
+#define ID_OPTIONS_RESETPANELS          3520
 
 // Next default values for new objects
-// 
+//
 #ifdef APSTUDIO_INVOKED
 #ifndef APSTUDIO_READONLY_SYMBOLS
 #define _APS_NEXT_RESOURCE_VALUE        205
-#define _APS_NEXT_COMMAND_VALUE         3520
+#define _APS_NEXT_COMMAND_VALUE         3521
 #define _APS_NEXT_CONTROL_VALUE         1228
 #define _APS_NEXT_SYMED_VALUE           105
 #endif

@@ -602,3 +602,29 @@ M59EXPORT void PanelGameTabHide(void)
 {
    if (hGameTab) ShowWindow(hGameTab, SW_HIDE);
 }
+
+/*
+ * PanelResetAll: Move all registered panels to a default cascaded layout
+ * inside hRef's client area.  Called from the "Reset window positions" menu.
+ */
+M59EXPORT void PanelResetAll(HWND hRef)
+{
+   RECT cr;
+   GetClientRect(hRef, &cr);
+   POINT origin = { cr.left + 4, cr.top + 4 };
+   ClientToScreen(hRef, &origin);
+
+   for (int i = 0; i < nPanels; i++)
+   {
+      if (!IsWindowVisible(panels[i])) continue;
+      RECT pr;
+      GetWindowRect(panels[i], &pr);
+      int pw = pr.right  - pr.left;
+      int ph = pr.bottom - pr.top;
+      int nx = origin.x + i * 20;
+      int ny = origin.y + i * 20;
+      SetWindowPos(panels[i], NULL, nx, ny, 0, 0,
+         SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
+      PanelSavePosForHwnd(panels[i]);
+   }
+}

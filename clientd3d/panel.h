@@ -44,5 +44,6 @@ M59EXPORT void    PanelGameTabCreate(HWND hRef);
 M59EXPORT void    PanelGameTabDestroy(void);
 M59EXPORT void    PanelGameTabUpdate(void);
 M59EXPORT void    PanelGameTabHide(void);
+M59EXPORT void    PanelResetAll(HWND hRef);
 
 #endif /* _PANEL_H */

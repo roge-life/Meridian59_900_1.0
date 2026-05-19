@@ -73,6 +73,7 @@ EXPORTS
 	PanelGameTabDestroy
 	PanelGameTabUpdate
 	PanelGameTabHide
+	PanelResetAll
 
 ; Send messages to other modules
 	ModuleEvent

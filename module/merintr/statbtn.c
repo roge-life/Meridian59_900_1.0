@@ -214,13 +214,16 @@ void StatsMoveButtons(void)
    int barW = r.right;
    int barH = r.bottom;
 
-   /* Shift bar left by PANEL_HANDLE so it doesn't overlap the pull tab at
-      the bottom-right corner.  No vertical adjustment needed.
+   /* Anchor to the client-area bottom-right corner (avoids DWM invisible
+      border making the bar appear below the visible window edge).
+      Shift left by PANEL_HANDLE so the pull tab column is clear.
       SWP_NOZORDER: bar already has WS_EX_TOPMOST at creation. */
-   RECT wr;
-   GetWindowRect(cinfo->hMain, &wr);
+   RECT cr;
+   GetClientRect(cinfo->hMain, &cr);
+   POINT cpt = { cr.right, cr.bottom };
+   ClientToScreen(cinfo->hMain, &cpt);
    SetWindowPos(hStatButtonBar, NULL,
-      wr.right - barW - PANEL_HANDLE, wr.bottom - barH, barW, barH,
+      cpt.x - barW - PANEL_HANDLE, cpt.y - barH, barW, barH,
       SWP_NOZORDER | SWP_NOACTIVATE);
 
    PanelGameTabUpdate();

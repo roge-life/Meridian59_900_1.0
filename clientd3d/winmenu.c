@@ -148,6 +148,9 @@ void MenuCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
       if (!config.play_sound)
 	 SoundStopAll();
       break;
+   case ID_OPTIONS_RESETPANELS:
+      PanelResetAll(hMain);
+      break;
    case ID_OPTIONS_SAVENOW:
       SaveSettings();
       break;
