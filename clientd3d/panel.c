@@ -498,6 +498,17 @@ M59EXPORT void PanelLeaveHover(HWND hwnd) { }
 static HWND hGameTab = NULL;
 static HWND hGameRef = NULL;
 
+/* Compute the screen position for the pull tab (bottom-right of hRef's client area). */
+static void GameTabClientCorner(HWND hRef, int *px, int *py)
+{
+   RECT cr;
+   GetClientRect(hRef, &cr);
+   POINT pt = { cr.right, cr.bottom };
+   ClientToScreen(hRef, &pt);
+   *px = pt.x - OVERLAY_HANDLE;
+   *py = pt.y - OVERLAY_HANDLE;
+}
+
 static LRESULT CALLBACK GameTabProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
 {
    switch (msg)
@@ -535,6 +546,12 @@ static LRESULT CALLBACK GameTabProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       SendMessage(hGameRef, WM_NCLBUTTONDOWN, HTBOTTOMRIGHT, MAKELPARAM(pt.x, pt.y));
       return 0;
    }
+
+   case WM_ACTIVATEAPP:
+      /* Don't float over other applications when M59 is in the background */
+      SetWindowPos(hwnd, wp ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      return 0;
    }
    return DefWindowProc(hwnd, msg, wp, lp);
 }
@@ -555,15 +572,13 @@ M59EXPORT void PanelGameTabCreate(HWND hRef)
    }
    hGameRef = hRef;
    if (hGameTab) DestroyWindow(hGameTab);
-   RECT wr;
-   GetWindowRect(hRef, &wr);
+   int tx, ty;
+   GameTabClientCorner(hRef, &tx, &ty);
    hGameTab = CreateWindowEx(
       WS_EX_TOOLWINDOW | WS_EX_TOPMOST | WS_EX_NOACTIVATE,
       "M59GameViewTab", NULL,
       WS_POPUP | WS_VISIBLE,
-      wr.right  - OVERLAY_HANDLE,
-      wr.bottom - OVERLAY_HANDLE,
-      OVERLAY_HANDLE, OVERLAY_HANDLE,
+      tx, ty, OVERLAY_HANDLE, OVERLAY_HANDLE,
       NULL, NULL, hInst, NULL);
 }
 
@@ -576,12 +591,10 @@ M59EXPORT void PanelGameTabDestroy(void)
 M59EXPORT void PanelGameTabUpdate(void)
 {
    if (!hGameTab || !hGameRef) return;
-   RECT wr;
-   GetWindowRect(hGameRef, &wr);
+   int tx, ty;
+   GameTabClientCorner(hGameRef, &tx, &ty);
    SetWindowPos(hGameTab, NULL,
-      wr.right  - OVERLAY_HANDLE,
-      wr.bottom - OVERLAY_HANDLE,
-      OVERLAY_HANDLE, OVERLAY_HANDLE,
+      tx, ty, OVERLAY_HANDLE, OVERLAY_HANDLE,
       SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 

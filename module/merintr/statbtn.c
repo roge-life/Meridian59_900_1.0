@@ -73,6 +73,12 @@ static LRESULT CALLBACK StatButtonBarProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM
       if (HIWORD(wp) == BN_CLICKED)
          StatButtonCommand(hwnd, LOWORD(wp), (HWND)lp, HIWORD(wp));
       return 0;
+
+   case WM_ACTIVATEAPP:
+      /* Don't float over other applications when M59 is in the background */
+      SetWindowPos(hwnd, wp ? HWND_TOPMOST : HWND_NOTOPMOST, 0, 0, 0, 0,
+         SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+      return 0;
    }
    return DefWindowProc(hwnd, msg, wp, lp);
 }
@@ -208,13 +214,13 @@ void StatsMoveButtons(void)
    int barW = r.right;
    int barH = r.bottom;
 
-   /* Pin bar just above the bottom-right pull tab so they don't overlap.
-      OVERLAY_HANDLE (20px) is the pull tab height reserved at the corner.
+   /* Shift bar left by PANEL_HANDLE so it doesn't overlap the pull tab at
+      the bottom-right corner.  No vertical adjustment needed.
       SWP_NOZORDER: bar already has WS_EX_TOPMOST at creation. */
    RECT wr;
    GetWindowRect(cinfo->hMain, &wr);
    SetWindowPos(hStatButtonBar, NULL,
-      wr.right - barW, wr.bottom - barH - PANEL_HANDLE, barW, barH,
+      wr.right - barW - PANEL_HANDLE, wr.bottom - barH, barW, barH,
       SWP_NOZORDER | SWP_NOACTIVATE);
 
    PanelGameTabUpdate();
