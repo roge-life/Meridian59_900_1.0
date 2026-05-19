@@ -208,12 +208,13 @@ void StatsMoveButtons(void)
    int barW = r.right;
    int barH = r.bottom;
 
-   /* Pin bar to bottom-right corner of the game window. */
+   /* Pin bar to bottom-right corner of the game window.
+      SWP_NOZORDER: bar already has WS_EX_TOPMOST at creation. */
    RECT wr;
    GetWindowRect(cinfo->hMain, &wr);
-   SetWindowPos(hStatButtonBar, HWND_TOPMOST,
+   SetWindowPos(hStatButtonBar, NULL,
       wr.right - barW, wr.bottom - barH, barW, barH,
-      SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+      SWP_NOZORDER | SWP_NOACTIVATE);
 
    int btnW = barW / NUM_BUTTONS;
 

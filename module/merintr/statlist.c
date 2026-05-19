@@ -7,21 +7,21 @@
 // Meridian is a registered trademark.
 /*
  * statlist.c:  Handle list box of statistics.
- * 
+ *
  * Only statistics groups with tag STAT_LIST use the list box.
  *
  * A statistic structure is stored in the item data for each entry in the list box.
  *
- * Because the background of the list box is owner drawn to match the background of the main
- * window, we can't let Windows do default list box scrolling for us.  This means that
- * we must also handle the scrollbar ourselves.
+ * Each stat group panel (spells/skills/quests) has its own listbox child created
+ * with HMENU=IDC_STATLIST.  There is no global hList — every function looks up the
+ * active panel's listbox via GetDlgItem(hStats, IDC_STATLIST).  hStats is set
+ * correctly by SetActiveStatPanel(idx) before any of these functions are called.
  */
 
 #include "client.h"
 #include "merintr.h"
 #include "skills.h"
 
-static HWND hList;                  // Listbox containing stats
 static WNDPROC lpfnDefStatListProc; // Default window procedure for stats list box
 
 extern HWND hStats;
@@ -44,6 +44,7 @@ static Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags
 void StatsListCreate(list_type stats)
 {
    list_type l;
+   HWND hList;
 
    if (StatsGetCurrentGroup() == STATS_QUESTS)
    {
@@ -68,7 +69,7 @@ void StatsListCreate(list_type stats)
    {
       int index;
       Statistic *s = (Statistic *) (l->data);
-      
+
       index = ListBox_AddString(hList, LookupNameRsc(s->name_res));
       ListBox_SetItemData(hList, index, s);
    }
@@ -79,8 +80,8 @@ void StatsListCreate(list_type stats)
  */
 void StatsListDestroy(list_type stats)
 {
-   DestroyWindow(hList);
-   hList = NULL;
+   HWND hList = GetDlgItem(hStats, IDC_STATLIST);
+   if (hList) DestroyWindow(hList);
 }
 /************************************************************************/
 /*
@@ -88,8 +89,11 @@ void StatsListDestroy(list_type stats)
  */
 void StatsListResize(list_type stats)
 {
+   HWND hList = GetDlgItem(hStats, IDC_STATLIST);
    AREA stats_area;
    int y;
+
+   if (!hList) return;
 
    StatsGetArea(&stats_area);
 
@@ -116,7 +120,10 @@ void StatsListResize(list_type stats)
  */
 void StatsListChangeStat(Statistic *s)
 {
+   HWND hList = GetDlgItem(hStats, IDC_STATLIST);
    int index, top;
+
+   if (!hList) return;
 
    if (s->num < 0 || s->num > ListBox_GetCount(hList))
    {
@@ -126,7 +133,7 @@ void StatsListChangeStat(Statistic *s)
 
    top = ListBox_GetTopIndex(hList);
 
-   index = StatListFindItem(s->num);   
+   index = StatListFindItem(s->num);
    if (index == -1)
    {
       debug(("StatListChangeList got illegal stat #%d\n", (int) s->num));
@@ -149,8 +156,11 @@ void StatsListChangeStat(Statistic *s)
  */
 int StatListFindItem(int num)
 {
+   HWND hList = GetDlgItem(hStats, IDC_STATLIST);
    int index, num_stats;
    Statistic *s;
+
+   if (!hList) return -1;
 
    num_stats = ListBox_GetCount(hList);
 
@@ -198,15 +208,12 @@ long CALLBACK StatsListProc(HWND hwnd, UINT message, UINT wParam, LONG lParam)
    case WM_KILLFOCUS:
       StatsDrawBorder();
       break;
-
-//	case WM_CTLCOLORSCROLLBAR:						// ajw
-//		return (long)GetStockObject( BLACK_BRUSH );		//	xxx
    }
    return CallWindowProc(lpfnDefStatListProc, hwnd, message, wParam, lParam);
 }
 
 /*****************************************************************************/
-/* 
+/*
  * StatsListMeasureItem:  Message handler for stats list box.
  */
 void StatsListMeasureItem(HWND hwnd, MEASUREITEMSTRUCT *lpmis)
@@ -214,13 +221,14 @@ void StatsListMeasureItem(HWND hwnd, MEASUREITEMSTRUCT *lpmis)
    lpmis->itemHeight = StatsListGetItemHeight();
 }
 /*****************************************************************************/
-/* 
+/*
  * StatsListDrawItem:  Message handler for stats list boxes.  Return TRUE iff
  *   message is handled.
  */
 BOOL StatsListDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
 {
-   if (hList == NULL)
+   /* Guard: no listbox yet for this panel */
+   if (GetDlgItem(hStats, IDC_STATLIST) == NULL)
       return TRUE;
 
    switch (lpdis->itemAction)
@@ -233,19 +241,18 @@ BOOL StatsListDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
 
       FillRect(lpdis->hDC, (RECT *)&lpdis->rcItem, (HBRUSH)GetStockObject(BLACK_BRUSH));
 
-      /* Draw info on stat */
+      /* Draw info on stat — lpdis->hwndItem is the specific listbox being drawn */
 	  StatsListDrawStat(lpdis, (Bool) (lpdis->itemState & ODS_SELECTED), (Bool)( StatsGetCurrentGroup() == STATS_SPELLS ) );
       break;
 
    case ODA_FOCUS:
-//      DrawFocusRect(lpdis->hDC, &lpdis->rcItem);
       break;
    }
-   
+
    return TRUE;
 }
 /*****************************************************************************/
-/* 
+/*
  * StatsListDrawStat:  Draw info about stat in stat list box.
  *   selected is True iff the item is currently selected.
  */
@@ -264,7 +271,8 @@ void StatsListDrawStat(const DRAWITEMSTRUCT *lpdis, Bool selected, Bool bShowSpe
 
    hOldFont = (HFONT) SelectObject(lpdis->hDC, GetFont(FONT_STATS));
 
-   s = (Statistic *) ListBox_GetItemData(hList, lpdis->itemID);
+   /* Use lpdis->hwndItem (the actual listbox being drawn) for item data */
+   s = (Statistic *) ListBox_GetItemData(lpdis->hwndItem, lpdis->itemID);
    if (s == NULL)
       return;
 
@@ -286,7 +294,6 @@ void StatsListDrawStat(const DRAWITEMSTRUCT *lpdis, Bool selected, Bool bShowSpe
    }
    // Draw text with drop shadow
    SetTextColor(lpdis->hDC, GetColor(COLOR_STATSBGD));
-   //DrawText(lpdis->hDC, str, strlen(str), &r,  DT_CENTER);
    DrawText( lpdis->hDC, str, strlen(str), &r, DT_LEFT );
    OffsetRect(&r, 1, 1);
    if (StatsGetCurrentGroup() == STATS_QUESTS && s->list.value == 0)
@@ -297,7 +304,6 @@ void StatsListDrawStat(const DRAWITEMSTRUCT *lpdis, Bool selected, Bool bShowSpe
    {
       SetTextColor(lpdis->hDC, selected ? GetColor(COLOR_HIGHLITE) : GetColor(COLOR_STATSFGD));
    }
-   //DrawText(lpdis->hDC, str, strlen(str), &r,  DT_CENTER);
    DrawText( lpdis->hDC, str, strlen(str), &r, DT_LEFT );
 
    SelectObject(lpdis->hDC, hOldFont);
@@ -325,7 +331,7 @@ void StatsListDrawStat(const DRAWITEMSTRUCT *lpdis, Bool selected, Bool bShowSpe
    }
 }
 /*****************************************************************************/
-/* 
+/*
  * StatsListGetItemHeight:  Return height of an item in the stats list box.
  */
 int StatsListGetItemHeight(void)
@@ -347,7 +353,7 @@ void StatsListLButton(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFlags)
    if (index >= ListBox_GetCount(hwnd))
       return;
 
-   ListBox_SetCurSel(hwnd, index);	
+   ListBox_SetCurSel(hwnd, index);
 }
 
 /*****************************************************************************/
@@ -360,7 +366,7 @@ void StatsListLButtonDblClk(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT key
    char pszCommand[256];
    int iLabelLen;
    int index = y / ListBox_GetItemHeight(hwnd, 0) + ListBox_GetTopIndex(hwnd);
-   
+
    if (index >= ListBox_GetCount(hwnd))
       return;
 
@@ -407,7 +413,7 @@ void StatsListRButton(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFlags)
    if (index >= ListBox_GetCount(hwnd))
       return;
 
-   ListBox_SetCurSel(hwnd, index);	
+   ListBox_SetCurSel(hwnd, index);
 
    s = (Statistic *) ListBox_GetItemData(hwnd, index);
    if (s == NULL)
@@ -426,10 +432,13 @@ void StatsListRButton(HWND hwnd, BOOL fDoubleClick, int x, int y, UINT keyFlags)
  */
 void StatsListCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
 {
+   HWND hList;
+
    if (codeNotify != LBN_SELCHANGE)
       return;
 
-   InvalidateRect(hList, NULL, TRUE);
+   hList = GetDlgItem(hStats, IDC_STATLIST);
+   if (hList) InvalidateRect(hList, NULL, TRUE);
 }
 /************************************************************************/
 /*
@@ -477,7 +486,7 @@ void StatsListVScroll(HWND hwnd, HWND hwndCtl, UINT code, int pos)
    case SB_TOP:
       new_top = 0;
       break;
-      
+
    default:
       // Pointless "SB_ENDSCROLL" added recently
       return;
@@ -487,7 +496,7 @@ void StatsListVScroll(HWND hwnd, HWND hwndCtl, UINT code, int pos)
 
    if (new_top != old_top)
    {
-      SetScrollPos(hwnd, SB_VERT, new_top, TRUE); 
+      SetScrollPos(hwnd, SB_VERT, new_top, TRUE);
 
       WindowBeginUpdate(hwnd);
       ListBox_SetTopIndex(hwnd, new_top);
@@ -520,7 +529,7 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
        new_top = new_pos;
      ListBox_SetTopIndex(hwnd, new_top);
      ListBox_SetCurSel(hwnd, new_pos);
-     SetScrollPos(hwnd, SB_VERT, new_top, TRUE); 
+     SetScrollPos(hwnd, SB_VERT, new_top, TRUE);
      WindowEndUpdate(hwnd);
      return True;
 
@@ -531,7 +540,7 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
        new_top = new_pos - num_visible;
      ListBox_SetTopIndex(hwnd, new_top);
      ListBox_SetCurSel(hwnd, new_pos);
-     SetScrollPos(hwnd, SB_VERT, new_top, TRUE); 
+     SetScrollPos(hwnd, SB_VERT, new_top, TRUE);
      WindowEndUpdate(hwnd);
      return True;
 
@@ -541,7 +550,7 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
      new_top = new_pos;
      ListBox_SetTopIndex(hwnd, new_top);
      ListBox_SetCurSel(hwnd, new_pos);
-     SetScrollPos(hwnd, SB_VERT, new_top, TRUE); 
+     SetScrollPos(hwnd, SB_VERT, new_top, TRUE);
      WindowEndUpdate(hwnd);
      return True;
 
@@ -551,7 +560,7 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
      new_top = new_pos - num_visible;
      ListBox_SetTopIndex(hwnd, new_top);
      ListBox_SetCurSel(hwnd, new_pos);
-     SetScrollPos(hwnd, SB_VERT, new_top, TRUE); 
+     SetScrollPos(hwnd, SB_VERT, new_top, TRUE);
      WindowEndUpdate(hwnd);
      return True;
 
@@ -561,7 +570,6 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
 			char* pszLabel = (char*)SafeMalloc( ( iLabelLen + 1 ) * sizeof( char ) );
 			if( ListBox_GetText( hwnd, old_pos, pszLabel ) != LB_ERR )
 			{
-				//	ajwxxx Hard-coded group number constants for spells list. There may be a var that could be used instead.
 				char* pszCommand;
 				if( StatsGetCurrentGroup() == STATS_SPELLS )
 				{
@@ -592,6 +600,6 @@ Bool StatListKey(HWND hwnd, UINT key, Bool fDown, int cRepeat, UINT flags)
  */
 void ShowStatsList( Bool bShow )
 {
-	ShowWindow( hList, bShow ? SW_SHOW : SW_HIDE );
-//	StatsClearArea();
+   HWND hList = GetDlgItem(hStats, IDC_STATLIST);
+   if (hList) ShowWindow( hList, bShow ? SW_SHOW : SW_HIDE );
 }

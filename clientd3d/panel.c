@@ -61,9 +61,11 @@ static void OverlayApplyRegion(HWND hPanel)
    DeleteObject(rgnHandle);
    SetWindowRgn(hOverlay, rgnTotal, FALSE); /* region ownership transferred */
 
-   SetWindowPos(hOverlay, HWND_TOPMOST,
+   /* SWP_NOZORDER: hOverlay already has WS_EX_TOPMOST; no need to re-fight
+      z-order with the button bar every 50 ms. */
+   SetWindowPos(hOverlay, NULL,
       rc.left, rc.top, w, h,
-      SWP_NOACTIVATE | SWP_SHOWWINDOW | SWP_NOOWNERZORDER);
+      SWP_NOZORDER | SWP_NOACTIVATE | SWP_SHOWWINDOW);
 }
 
 static HWND OverlayFindPanel(POINT pt)
@@ -208,9 +210,9 @@ static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
          /* Track actual post-snap position for the overlay */
          RECT trc;
          GetWindowRect(hOvTarget, &trc);
-         SetWindowPos(hwnd, HWND_TOPMOST,
+         SetWindowPos(hwnd, NULL,
             trc.left, trc.top, 0, 0,
-            SWP_NOSIZE | SWP_NOACTIVATE | SWP_NOOWNERZORDER);
+            SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
       }
       else if (gOvResizing)
       {
