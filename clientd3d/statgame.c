@@ -224,6 +224,15 @@ void GameVScroll(HWND hwnd, HWND hwndCtl, UINT code, int pos)
 void GameMove(HWND hwnd, int x, int y)
 {
    static int lastX = INT_MIN, lastY = INT_MIN;
+   /* Win32 sends WM_MOVE with (-32000,-32000) when the window is minimized.
+      Moving panels by that delta and then trying to compensate on restore
+      corrupts their positions.  Skip tracking entirely while iconic; the
+      first WM_MOVE after SIZE_RESTORED re-anchors lastX/lastY cleanly. */
+   if (IsIconic(hwnd))
+   {
+      lastX = INT_MIN;
+      return;
+   }
    if (lastX != INT_MIN)
       PanelMoveAll(x - lastX, y - lastY);
    lastX = x;
