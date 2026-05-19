@@ -415,6 +415,10 @@ void StatsGroupsInfo(BYTE num_groups, ID *names)
    StatsSetButtons(6);
    StatCacheSetSize(num_groups);
    RequestStats(STATS_MAIN);
+   /* Pre-fetch all panel groups so panels are populated while hidden.
+      Without this every group loads empty on the user's first open. */
+   for (int g = PANEL_GROUP_BASE; g < PANEL_GROUP_BASE + NUM_STAT_PANELS; g++)
+      RequestStats(g);
 }
 
 /* ---------------------------------------------------------------
@@ -486,8 +490,18 @@ void ToggleStatGroupPanel(int button_idx)
          else
             RequestStats(group);
       }
+      else
+      {
+         /* Data already present — refresh layout in case the panel was
+            resized while hidden, then force all children to repaint now
+            so the panel never appears momentarily blank. */
+         SetActiveStatPanel(button_idx);
+         StatsMove();
+      }
       ShowWindow(hPanel, SW_SHOWNOACTIVATE);
       SetForegroundWindow(hPanel);
+      RedrawWindow(hPanel, NULL, NULL,
+         RDW_ERASE | RDW_INVALIDATE | RDW_UPDATENOW | RDW_ALLCHILDREN);
    }
 }
 
