@@ -21,6 +21,10 @@
 #define PANEL_RESIZE_B   5   /* px at each edge: resize handle zone          */
 #define PANEL_SNAP_DIST 12   /* px within which panel edges snap together    */
 #define PANEL_HANDLE    20   /* px for the bottom-right resize pull tab      */
+#define PANEL_CLOSE_W   18   /* px at far-right of drag strip for the × btn  */
+
+/* Panel flags — passed to PanelSetFlags() after PanelRegister() */
+#define PANEL_FLAG_NOCLOSE  0x01  /* suppress the × close button in the drag strip */
 
 /* Drag-strip colour – used by PanelDrawDragStrip and WM_ERASEBKGND */
 #define PANEL_DRAG_COLOR  RGB(50, 50, 53)
@@ -45,5 +49,6 @@ M59EXPORT void    PanelGameTabDestroy(void);
 M59EXPORT void    PanelGameTabUpdate(void);
 M59EXPORT void    PanelGameTabHide(void);
 M59EXPORT void    PanelResetAll(HWND hRef);
+M59EXPORT void    PanelSetFlags(HWND hwnd, int flags);
 
 #endif /* _PANEL_H */

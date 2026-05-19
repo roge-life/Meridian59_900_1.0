@@ -823,9 +823,14 @@ static LRESULT CALLBACK MiniMapPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }
+
+   case WM_CLOSE:
+      ShowWindow(hwnd, SW_HIDE);
+      return 0;
 
    case WM_ERASEBKGND:
       return 1;

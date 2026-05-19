@@ -462,6 +462,10 @@ BOOL CALLBACK InventoryDialogProc(HWND hwnd, UINT message, UINT wParam, LONG lPa
      else *cinfo->hCurrentDlg = hwnd;
      return TRUE;
 
+   case WM_CLOSE:
+      ShowInventory(False);
+      return FALSE;
+
 //	case WM_CTLCOLORSCROLLBAR:						// ajw
 //		return (BOOL)hbrushScrollBack;
    }

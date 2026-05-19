@@ -24,6 +24,7 @@
 #define OVERLAY_HANDLE   PANEL_HANDLE  /* bottom-right resize corner size (px) */
 
 static HWND panels[MAX_PANELS];
+static int  panelFlags[MAX_PANELS];  /* per-panel PANEL_FLAG_* bits */
 static int  nPanels    = 0;
 static BOOL gMovingAll = FALSE;   /* suppress snap during PanelMoveAll */
 
@@ -45,6 +46,14 @@ static POINT gOvStartPt;          /* screen cursor at drag start      */
 static RECT  gOvStartRect;        /* panel screen rect at drag start  */
 
 /* ------------------------------------------------------------------ */
+
+static int OverlayGetTargetFlags(void)
+{
+   if (!hOvTarget) return 0;
+   for (int i = 0; i < nPanels; i++)
+      if (panels[i] == hOvTarget) return panelFlags[i];
+   return 0;
+}
 
 static void OverlayApplyRegion(HWND hPanel)
 {
@@ -149,6 +158,20 @@ static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       /* Drag strip at top */
       PanelDrawDragStrip(hdc, w);
 
+      /* × close button at far-right of drag strip (unless panel opted out) */
+      if (!(OverlayGetTargetFlags() & PANEL_FLAG_NOCLOSE))
+      {
+         int cx = w - PANEL_CLOSE_W / 2;
+         int cy = PANEL_DRAG_H / 2;
+         int r  = 4;
+         HPEN hPen = CreatePen(PS_SOLID, 2, PANEL_DRAG_DOT);
+         HPEN hOld = (HPEN)SelectObject(hdc, hPen);
+         MoveToEx(hdc, cx - r, cy - r, NULL); LineTo(hdc, cx + r + 1, cy + r + 1);
+         MoveToEx(hdc, cx + r, cy - r, NULL); LineTo(hdc, cx - r - 1, cy + r + 1);
+         SelectObject(hdc, hOld);
+         DeleteObject(hPen);
+      }
+
       /* 45-degree resize triangle at bottom-right */
       POINT tri[3] = { {w - OVERLAY_HANDLE, h}, {w, h - OVERLAY_HANDLE}, {w, h} };
       HRGN  rgn = CreatePolygonRgn(tri, 3, WINDING);
@@ -171,6 +194,9 @@ static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
          GetWindowRect(hOvTarget, &rc);
          if (pt.y >= rc.bottom - OVERLAY_HANDLE && pt.x >= rc.right - OVERLAY_HANDLE)
             SetCursor(LoadCursor(NULL, IDC_SIZENWSE));
+         else if (!(OverlayGetTargetFlags() & PANEL_FLAG_NOCLOSE) &&
+                  pt.y < rc.top + PANEL_DRAG_H && pt.x >= rc.right - PANEL_CLOSE_W)
+            SetCursor(LoadCursor(NULL, IDC_HAND));
          else
             SetCursor(LoadCursor(NULL, IDC_SIZEALL));
       }
@@ -184,6 +210,18 @@ static LRESULT CALLBACK OverlayProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp)
       GetCursorPos(&pt);
       RECT rc;
       GetWindowRect(hOvTarget, &rc);
+
+      /* Close button: top-right PANEL_CLOSE_W × PANEL_DRAG_H strip */
+      if (!(OverlayGetTargetFlags() & PANEL_FLAG_NOCLOSE) &&
+          pt.y < rc.top + PANEL_DRAG_H && pt.x >= rc.right - PANEL_CLOSE_W)
+      {
+         HWND target = hOvTarget;
+         hOvTarget = NULL;
+         ShowWindow(hOverlay, SW_HIDE);
+         SendMessage(target, WM_CLOSE, 0, 0);
+         return 0;
+      }
+
       gOvStartPt   = pt;
       gOvStartRect = rc;
       SetCapture(hwnd);
@@ -627,4 +665,10 @@ M59EXPORT void PanelResetAll(HWND hRef)
          SWP_NOSIZE | SWP_NOZORDER | SWP_NOACTIVATE);
       PanelSavePosForHwnd(panels[i]);
    }
+}
+
+M59EXPORT void PanelSetFlags(HWND hwnd, int flags)
+{
+   for (int i = 0; i < nPanels; i++)
+      if (panels[i] == hwnd) { panelFlags[i] = flags; return; }
 }

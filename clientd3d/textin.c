@@ -75,9 +75,14 @@ static LRESULT CALLBACK ChatPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPARAM 
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, GetSysColorBrush(COLOR_WINDOW));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       return 0;
    }
+
+   case WM_CLOSE:
+      ShowWindow(hwnd, SW_HIDE);
+      return 0;
 
    case WM_ERASEBKGND:
       return 1;

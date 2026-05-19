@@ -69,6 +69,7 @@ static LRESULT CALLBACK StatBarsPanelWndProc(HWND hwnd, UINT msg, WPARAM wParam,
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       StatsMainRedraw();
       return 0;
@@ -100,6 +101,7 @@ void StatsMainPanelCreate(HWND hParent)
       pt.x, pt.y, STATBARS_PANEL_W, STATBARS_PANEL_H,
       hParent, NULL, hInst, NULL);
    PanelRegister(hStatBarsPanel);
+   PanelSetFlags(hStatBarsPanel, PANEL_FLAG_NOCLOSE);
    PanelLoadPos(hStatBarsPanel, "StatBars");
 }
 /************************************************************************/
@@ -140,7 +142,7 @@ void StatsMainReceive(list_type stats)
 
    // Create graph controls for integer stats, positioned within the panel
    height = STAT_ICON_HEIGHT + STATS_MAIN_SPACING;
-   y = PANEL_DRAG_H + 2;
+   y = PANEL_DRAG_H;
    for (l = stats; l != NULL; l = l->next)
    {
       Statistic *s = (Statistic *) (l->data);

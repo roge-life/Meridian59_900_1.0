@@ -364,9 +364,11 @@ void MainResize(HWND hwnd, UINT resize_flag, int xsize, int ysize)
 /****************************************************************************/
 void MainMinMaxInfo(HWND hwnd, MINMAXINFO *lpmmi)
 {
-	/* Set minimum size of window */
-	lpmmi->ptMinTrackSize.x = MIN_WINDOW_WIDTH;
-	lpmmi->ptMinTrackSize.y = MIN_WINDOW_HEIGHT;
+	/* Minimum client area is 512×512; compute window track size from that. */
+	RECT r = {0, 0, 512, 512};
+	AdjustWindowRectEx(&r, WS_OVERLAPPEDWINDOW, FALSE, 0);
+	lpmmi->ptMinTrackSize.x = r.right  - r.left;
+	lpmmi->ptMinTrackSize.y = r.bottom - r.top;
 }
 /****************************************************************************/
 void MainSetFocus(HWND hwnd, HWND hwndOldFocus)

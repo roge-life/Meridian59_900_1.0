@@ -119,6 +119,7 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
       RECT r;
       GetClientRect(hwnd, &r);
       FillRect(hdc, &r, (HBRUSH)GetStockObject(BLACK_BRUSH));
+      PanelDrawDragStrip(hdc, r.right);
       EndPaint(hwnd, &ps);
       /* Redraw text labels for numeric groups — they are drawn directly to
          the DC (not via child controls) and get erased by the FillRect above. */
@@ -147,6 +148,11 @@ static LRESULT CALLBACK StatGroupPanelProc(HWND hwnd, UINT msg, WPARAM wp, LPARA
    case WM_VSCROLL:
       SetActiveStatPanel(idx);
       StatsNumVScroll(hwnd, (HWND)lp, LOWORD(wp), HIWORD(wp));
+      return 0;
+
+   case WM_CLOSE:
+      ShowWindow(hwnd, SW_HIDE);
+      StatsMoveButtons();
       return 0;
    }
    return DefWindowProc(hwnd, msg, wp, lp);

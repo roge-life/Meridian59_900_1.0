@@ -127,6 +127,7 @@ void EnchantmentsInit(void)
          pt.x, pt.y, ENCHANT_PANEL_W, ENCHANT_PANEL_H,
          cinfo->hMain, NULL, hInst, NULL);
       PanelRegister(hEnchantPanel);
+      PanelSetFlags(hEnchantPanel, PANEL_FLAG_NOCLOSE);
       PanelLoadPos(hEnchantPanel, "Enchant");
    }
 
