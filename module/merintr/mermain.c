@@ -140,10 +140,6 @@ Bool InterfaceDrawItem(HWND hwnd, const DRAWITEMSTRUCT *lpdis)
 {
    switch (lpdis->CtlID)
    {
-   case IDC_USERAREA:
-      UserAreaRedraw();
-      return False;
-
    case IDC_STATS:
       StatsDrawNumItem(hwnd, lpdis);
       return False;
