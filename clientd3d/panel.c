@@ -391,12 +391,35 @@ M59EXPORT void PanelLoadPos(HWND hwnd, const char *name)
    sprintf(key, "%s_Y", name); y = GetConfigInt(panel_section, key, r.top, ini_file);
    sprintf(key, "%s_W", name); w = GetConfigInt(panel_section, key, r.right - r.left, ini_file);
    sprintf(key, "%s_H", name); h = GetConfigInt(panel_section, key, r.bottom - r.top, ini_file);
+
+   /* Compensate for hMain having moved since panels were last saved.
+      MainWindow_X/Y is only written when live panels exist, so it always
+      matches the panel absolute positions in the INI. */
+   RECT mr;
+   GetWindowRect(hMain, &mr);
+   int savedMainX = GetConfigInt(panel_section, "MainWindow_X", mr.left, ini_file);
+   int savedMainY = GetConfigInt(panel_section, "MainWindow_Y", mr.top,  ini_file);
+   x += mr.left - savedMainX;
+   y += mr.top  - savedMainY;
+
    if (x != r.left || y != r.top || w != (r.right - r.left) || h != (r.bottom - r.top))
       SetWindowPos(hwnd, NULL, x, y, w, h, SWP_NOZORDER | SWP_NOACTIVATE);
 }
 
 M59EXPORT void PanelSaveAll(void)
 {
+   /* Save hMain anchor only when panels are live — keeps anchor in sync with
+      panel absolute positions so PanelLoadPos can compensate next session. */
+   BOOL anyLive = FALSE;
+   for (int i = 0; i < nNamedPanels; i++)
+      if (namedPanels[i].hwnd) { anyLive = TRUE; break; }
+   if (anyLive)
+   {
+      RECT mr;
+      GetWindowRect(hMain, &mr);
+      WriteConfigInt(panel_section, "MainWindow_X", mr.left, ini_file);
+      WriteConfigInt(panel_section, "MainWindow_Y", mr.top,  ini_file);
+   }
    for (int i = 0; i < nNamedPanels; i++)
       if (namedPanels[i].hwnd) PanelSavePosForHwnd(namedPanels[i].hwnd);
 }
