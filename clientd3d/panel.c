@@ -104,6 +104,13 @@ static void OverlayTick(void)
    if (!hPanel && WindowFromPoint(pt) == hOverlay)
       hPanel = hOvTarget;
 
+   /* Fixed panels (e.g. stat button bar) travel with hMain but don't get drag chrome */
+   if (hPanel)
+   {
+      for (int i = 0; i < nPanels; i++)
+         if (panels[i] == hPanel && (panelFlags[i] & PANEL_FLAG_FIXED)) { hPanel = NULL; break; }
+   }
+
    if (hPanel)
    {
       /* Check whether the panel moved/resized since last tick */

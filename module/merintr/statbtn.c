@@ -165,6 +165,9 @@ static void StatsCreateButtons(void)
          work.right - barW, work.bottom - barH,
          barW, barH,
          cinfo->hMain, NULL, hInst, NULL);
+
+      PanelRegister(hStatButtonBar);
+      PanelSetFlags(hStatButtonBar, PANEL_FLAG_NOCLOSE | PANEL_FLAG_FIXED);
    }
 
    /* Destroy and recreate button HWNDs */
@@ -197,6 +200,7 @@ void StatsDestroyButtons(void)
 
    if (hStatButtonBar)
    {
+      PanelUnregister(hStatButtonBar);
       DestroyWindow(hStatButtonBar);
       hStatButtonBar = NULL;
    }

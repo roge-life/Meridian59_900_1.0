@@ -25,6 +25,7 @@
 
 /* Panel flags — passed to PanelSetFlags() after PanelRegister() */
 #define PANEL_FLAG_NOCLOSE  0x01  /* suppress the × close button in the drag strip */
+#define PANEL_FLAG_FIXED    0x02  /* fixed-position: suppress overlay (no drag/resize chrome) */
 
 /* Drag-strip colour – used by PanelDrawDragStrip and WM_ERASEBKGND */
 #define PANEL_DRAG_COLOR  RGB(50, 50, 53)
