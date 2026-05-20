@@ -45,7 +45,7 @@ void MenuDisplaySettings(HWND hwnd)
    CheckMenuItem(menu, ID_OPTIONS_SAVEEXIT, config.save_settings ? MF_CHECKED : MF_UNCHECKED);
    CheckMenuItem(menu, ID_OPTIONS_MUSIC, config.play_music ? MF_CHECKED : MF_UNCHECKED);
    CheckMenuItem(menu, ID_OPTIONS_SOUND, config.play_sound ? MF_CHECKED : MF_UNCHECKED);
-   CheckMenuItem(menu, ID_OPTIONS_AREA, config.large_area ? MF_CHECKED : MF_UNCHECKED);
+   /* ID_OPTIONS_AREA removed — large graphics area is always enabled */
 }
 /****************************************************************************/
 /*
@@ -158,21 +158,7 @@ void MenuCommand(HWND hwnd, int id, HWND hwndCtl, UINT codeNotify)
       config.save_settings = !config.save_settings;
       CheckMenuItem(menu, ID_OPTIONS_SAVEEXIT, config.save_settings ? MF_CHECKED : MF_UNCHECKED);
       break;
-   case ID_OPTIONS_AREA:
-	   // due to issues with certain D3D drivers, this no longer immediately updates the config
-	   // it now sets a temporary variable that will update the config on shutdown
-	   // this means a shutdown and restart are necessary for window size changes
-	   MessageBox(hMain, "You must shutdown and restart Meridian 59 for these changes to take effect",
-		   "Direct3D", MB_OK);
-		   
-//      config.large_area = !config.large_area;
-	   gLargeArea = !gLargeArea;
-      CheckMenuItem(menu, ID_OPTIONS_AREA, gLargeArea ? MF_CHECKED : MF_UNCHECKED);
-/*      if (state == STATE_GAME)
-	 // Send ourselves a resize message 
-	 ResizeAll();
-      RedrawAll();*/
-      break;
+   /* ID_OPTIONS_AREA removed — large graphics area is always enabled */
 
    case ID_OPTIONS_FONT_MAP_TITLE: UserSelectFont(FONT_MAP_TITLE); break;
    case ID_OPTIONS_FONT_MAP_LABEL: UserSelectFont(FONT_MAP_LABEL); break;

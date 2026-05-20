@@ -344,7 +344,13 @@ M59EXPORT void PanelUnregister(HWND hwnd)
       ShowWindow(hOverlay, SW_HIDE);
    }
    for (int i = 0; i < nPanels; i++)
-      if (panels[i] == hwnd) { panels[i] = panels[--nPanels]; return; }
+      if (panels[i] == hwnd)
+      {
+         --nPanels;
+         panels[i]     = panels[nPanels];
+         panelFlags[i] = panelFlags[nPanels];
+         return;
+      }
 }
 
 M59EXPORT void PanelSetName(HWND hwnd, const char *name)

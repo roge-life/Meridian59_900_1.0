@@ -196,8 +196,10 @@ void ConfigLoad(void)
    config.sound_volume    = GetConfigInt(misc_section, INISoundVolume, 75, ini_file); // 100 is potentially too loud, err on the side of caution.
    config.play_loop_sounds    = GetConfigInt(misc_section, INIPlayLoopSounds, True, ini_file);
    config.play_random_sounds    = GetConfigInt(misc_section, INIPlayRandomSounds, True, ini_file);
-   config.large_area    = GetConfigInt(misc_section, INIArea, True, ini_file);
-   gLargeArea = config.large_area;
+   /* Large graphics area is always on — panels are now floating, so the
+      3D view always fills the full window and stretchfactor must be 2. */
+   config.large_area = True;
+   gLargeArea        = True;
    // Animation option removed 3/4/97 to fix movement bug
 #ifndef NODPRINTFS
    config.animate       = GetConfigInt(misc_section, INIAnimate, True, ini_file);
@@ -316,7 +318,7 @@ void ConfigSave(void)
    WriteConfigInt(misc_section, INIPlayRandomSounds, config.play_random_sounds, ini_file);
    WriteConfigInt(misc_section, INITimeout, config.timeout, ini_file);
    WriteConfigInt(misc_section, INITimeoutEnabled, config.timeoutenabled, ini_file);
-   WriteConfigInt(misc_section, INIArea, gLargeArea, ini_file);
+   /* large_area is now always True; no need to persist */
    WriteConfigInt(misc_section, INIAnimate, config.animate, ini_file);
    WriteConfigInt(misc_section, INIVersion, config.ini_version, ini_file);
    WriteConfigInt(misc_section, INIDefaultBrowser, config.default_browser, ini_file);

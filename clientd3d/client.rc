@@ -883,7 +883,6 @@ BEGIN
     END
     POPUP "&Options"
     BEGIN
-        MENUITEM "Large &graphics area",        ID_OPTIONS_AREA
         MENUITEM "&Music",                      ID_OPTIONS_MUSIC
         MENUITEM "&Sounds",                     ID_OPTIONS_SOUND
         MENUITEM SEPARATOR
