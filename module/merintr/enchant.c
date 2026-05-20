@@ -83,7 +83,9 @@ static LRESULT CALLBACK EnchantPanelWndProc(HWND hwnd, UINT msg, WPARAM wp, LPAR
       HDC hdc = BeginPaint(hwnd, &ps);
       RECT r;
       GetClientRect(hwnd, &r);
-      FillRect(hdc, &r, GetSysColorBrush(COLOR_BTNFACE));
+      PanelDrawDragStrip(hdc, r.right);
+      RECT content = {r.left, PANEL_DRAG_H, r.right, r.bottom};
+      FillRect(hdc, &content, GetSysColorBrush(COLOR_BTNFACE));
       EndPaint(hwnd, &ps);
       return 0;
    }
@@ -306,6 +308,7 @@ void EnchantmentsMovePlayer(void)
       x += width + ENCHANT_BORDER;
       ShowWindow(e->hwnd, SW_SHOWNORMAL);
    }
+   InvalidateRect(hEnchantPanel, NULL, FALSE);
 }
 /************************************************************************/
 /*
@@ -335,6 +338,7 @@ void EnchantmentsMoveRoom(void)
       x -= width + ENCHANT_BORDER;
       ShowWindow(e->hwnd, SW_SHOWNORMAL);
    }
+   InvalidateRect(hEnchantPanel, NULL, FALSE);
 }
 /****************************************************************************/
 /*
