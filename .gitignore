@@ -222,3 +222,20 @@ pip-log.txt
 *.backup2
 *.backup3
 .claude/
+
+#############
+## Infrastructure secrets
+#############
+# This repo has a GitHub remote. Terraform state and tfvars carry DigitalOcean
+# API tokens, the wg-easy UI password, and every random_password in cleartext.
+# Nothing secret has ever been committed here (verified 2026-09-01) - these
+# rules exist so that `git add -A` can never be the first time.
+*.tfvars
+!*.tfvars.example
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+do_token*
+*.pem
+*.key
